@@ -1,0 +1,8 @@
+CLAUDE.md
+venvCLARA/
+data/circuits/
+logs/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

@@ -2,7 +2,7 @@
 
 CLARA is a reinforcement learning system that learns to automatically place components (MOSFETs, resistors, capacitors) for analog ICs on a 2D grid. The system focuses on relational placement, learning how components should be placed relative to each other rather than absolute positioning. The goal is to develop generalizable placement logic (symmetry, proximity, compactness) across different circuit topologies.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ### Core Components
 
@@ -20,49 +20,44 @@ CLARA is a reinforcement learning system that learns to automatically place comp
 - **Component Matching**: Handles symmetric component pairs for analog circuit requirements
 - **Multi-format Support**: JSON-based circuit representation for flexibility
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/Ballistyxx/CLARA.git
 cd CLARA
 
 # Create virtual environment
-python -m venv clara_env
-source clara_env/bin/activate  # On Windows: clara_env\Scripts\activate
+python -m venv venvCLARA
+source venvCLARA/bin/activate  # On Windows: clara_env\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### Generate Sample Circuits
+### Generate Sample Circuits **In Progress**
 
 ```bash
 # Generate training dataset
 cd data
-python circuit_generator.py
+python3 circuit_generator.py
 ```
 
 ### Train the Model
 
 ```bash
 # Basic training
-python train.py
-
-# With Weights & Biases logging
-USE_WANDB=true python train.py
+python3 train.py
 ```
 
-### Visualize Results
-
+### Run the model:
 ```bash
-# Create layout visualizations
-python visualize.py
+python3 run_model.py --episodes 1 --visualize
 ```
 
-## 📊 Training Progress
+## Training Progress
 
 The system uses PPO with custom policy network and implements curriculum learning:
 
@@ -70,7 +65,30 @@ The system uses PPO with custom policy network and implements curriculum learnin
 - **Phase 2 (Episodes 300-700)**: Balance all reward components  
 - **Phase 3 (Episodes 700+)**: Emphasize quality metrics (symmetry, connectivity)
 
-## 🔧 Configuration
+## Training Policy:
+
+1. GraphNeuralNetwork (GNN)
+- Processes the circuit topology as a graph
+- Uses either Graph Attention Networks (GAT) or Graph Convolutional Networks (GCN)
+- Converts circuit connectivity into meaningful embeddings
+- Handles node features (component properties) and edge relationships
+2. PlacementStateEncoder
+- Encodes the current placement state (which components are already placed where)
+- Uses 3D CNNs to process the placed components grid
+- Provides spatial awareness of the current layout
+3. RelationalActionNetwork
+- Outputs relational placement actions instead of absolute coordinates
+- Three action heads:
+    - Target Component: Which unplaced component to place next
+    - Spatial Relation: How to place it relative to existing components (left-of, right-of, above, below, mirrored, etc.)
+    - Orientation: Component rotation/orientation
+4. AnalogLayoutPolicy (Main Policy Class)
+- Inherits from ActorCriticPolicy (Stable-Baselines3)
+- Actor-Critic architecture:
+- Actor: Decides what actions to take (component placement)
+- Critic: Evaluates how good the current state is (value function)
+
+## Configuration
 
 Key hyperparameters in `train.py`:
 
@@ -84,46 +102,7 @@ config = {
 }
 ```
 
-## 📁 Project Structure
-
-```
-CLARA/
-├── analog_layout_env.py    # Gym environment
-├── policy.py               # GNN-based PPO policy  
-├── reward.py               # Modular reward functions
-├── train.py                # Training script with callbacks
-├── visualize.py            # Layout visualization tools
-├── data/
-│   ├── circuit_generator.py   # Circuit topology generator
-│   └── circuits/              # Generated circuit files
-├── tests/                  # Unit tests
-└── logs/                   # Training logs and checkpoints
-```
-
-## 🎯 Deliverables Status
-
-✅ **analog_layout_env.py** — Gym-compatible environment with Dict observation space and MultiDiscrete actions  
-✅ **policy.py** — GNN-based custom PPO policy with relational action heads  
-✅ **train.py** — SB3 training script with TensorBoard logging and curriculum learning  
-✅ **reward.py** — Modular reward components (symmetry, compactness, connectivity)  
-✅ **data/circuit_generator.py** — Analog circuit dataset generation  
-✅ **visualize.py** — Layout renderer with matplotlib  
-✅ **README.md** — Project overview and setup instructions
-
-## 🧪 Testing
-
-```bash
-# Run basic environment test
-python -c "
-from analog_layout_env import AnalogLayoutEnv
-env = AnalogLayoutEnv()
-obs = env.reset()
-print('Environment initialized successfully!')
-print(f'Observation keys: {obs.keys()}')
-"
-```
-
-## 📈 Performance Metrics
+## Performance Metrics
 
 The system tracks several key metrics:
 
@@ -131,11 +110,3 @@ The system tracks several key metrics:
 - **Symmetry Score**: Quality of matched component placement
 - **Compactness**: Efficiency of layout bounding box usage  
 - **Connectivity**: Average distance between connected components
-
-## 🤝 Contributing
-
-This is a research project focused on analog IC placement using reinforcement learning. The implementation emphasizes educational clarity and experimental flexibility over production optimization.
-
-## 📄 License
-
-Research and educational use.# CLARA

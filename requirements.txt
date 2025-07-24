@@ -1,0 +1,45 @@
+# Core RL and Environment
+gym>=0.21.0
+gymnasium>=0.27.0
+stable-baselines3>=1.7.0
+sb3-contrib>=1.7.0
+
+# PyTorch and Deep Learning
+torch>=1.12.0
+torch-geometric>=2.2.0
+torchvision>=0.13.0
+
+# Graph Processing
+networkx>=2.8
+scipy>=1.9.0
+
+# Scientific Computing
+numpy>=1.21.0
+pandas>=1.5.0
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.11.0
+plotly>=5.10.0
+
+# Logging and Monitoring
+tensorboard>=2.9.0
+wandb>=0.13.0
+tqdm>=4.64.0
+
+# Configuration and I/O
+pyyaml>=6.0
+jsonschema>=4.0.0
+
+# Development and Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=22.0.0
+flake8>=5.0.0
+mypy>=0.991
+
+# Optional: CUDA support (uncomment if using GPU)
+# torch-scatter>=2.1.0
+# torch-sparse>=0.6.0
+# torch-cluster>=1.6.0
+# torch-spline-conv>=1.2.0
