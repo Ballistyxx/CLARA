@@ -31,7 +31,7 @@ cd CLARA
 
 # Create virtual environment
 python -m venv venvCLARA
-source venvCLARA/bin/activate  # On Windows: clara_env\Scripts\activate
+source venvCLARA/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -40,7 +40,6 @@ pip install -r requirements.txt
 ### Generate Sample Circuits **In Progress**
 
 ```bash
-# Generate training dataset
 cd data
 python3 circuit_generator.py
 ```
@@ -48,7 +47,6 @@ python3 circuit_generator.py
 ### Train the Model
 
 ```bash
-# Basic training
 python3 train.py
 ```
 

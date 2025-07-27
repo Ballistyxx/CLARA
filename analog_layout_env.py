@@ -34,7 +34,7 @@ class AnalogLayoutEnv(gym.Env):
     Custom Gym environment for analog IC component placement using relational actions.
     """
     
-    def __init__(self, grid_size: int = 20, max_components: int = 10):
+    def __init__(self, grid_size: int = 64, max_components: int = 10):
         super().__init__()
         
         self.grid_size = grid_size
@@ -55,10 +55,10 @@ class AnalogLayoutEnv(gym.Env):
                 shape=(max_components, max_components), 
                 dtype=np.float32
             ),
-            "placed_components": spaces.Box(
-                low=0, high=1,
-                shape=(grid_size, grid_size, max_components),
-                dtype=np.int8
+            "placed_components_list": spaces.Box(
+                low=-1.0, high=1.0,  # Normalized coordinates + -1 for unplaced
+                shape=(max_components, 4),  # [norm_x, norm_y, norm_orientation, valid]
+                dtype=np.float32
             ),
             "netlist_features": spaces.Box(
                 low=0, high=10,
@@ -85,7 +85,7 @@ class AnalogLayoutEnv(gym.Env):
         
         self.circuit = circuit_graph
         self.num_components = len(self.circuit.nodes)
-        self.grid = np.zeros((self.grid_size, self.grid_size), dtype=int)
+        self.occupied_cells = set()  # Track (x,y) coordinates only
         self.component_positions = {}  # component_id -> (x, y, orientation)
         self.placed_mask = np.zeros(self.max_components, dtype=bool)
         self.current_step = 0
@@ -184,11 +184,11 @@ class AnalogLayoutEnv(gym.Env):
         if orientation in [1, 3]:  # 90° or 270°
             width, height = height, width
         
-        # Mark grid positions as occupied
+        # Mark grid positions as occupied using set
         for dx in range(width):
             for dy in range(height):
                 if 0 <= x + dx < self.grid_size and 0 <= y + dy < self.grid_size:
-                    self.grid[x + dx, y + dy] = component_id + 1
+                    self.occupied_cells.add((x + dx, y + dy))
         
         self.component_positions[component_id] = (x, y, orientation)
         self.placed_mask[component_id] = True
@@ -222,10 +222,10 @@ class AnalogLayoutEnv(gym.Env):
             new_y + comp_height > self.grid_size):
             return None
         
-        # Check for overlap
+        # Check for overlap using set
         for dx in range(comp_width):
             for dy in range(comp_height):
-                if self.grid[new_x + dx, new_y + dy] != 0:
+                if (new_x + dx, new_y + dy) in self.occupied_cells:
                     return None
         
         return (new_x, new_y)
@@ -295,11 +295,16 @@ class AnalogLayoutEnv(gym.Env):
                     if self.circuit.has_edge(i, j):
                         adj_matrix[i, j] = 1.0
         
-        # Placed components grid
-        placed_grid = np.zeros((self.grid_size, self.grid_size, self.max_components))
-        for comp_id, (x, y, _) in self.component_positions.items():
+        # Placed components list with normalized positions
+        placed_components_list = np.full((self.max_components, 4), -1.0)
+        for comp_id, (x, y, orientation) in self.component_positions.items():
             if comp_id < self.max_components:
-                placed_grid[x, y, comp_id] = 1
+                placed_components_list[comp_id] = [
+                    x / self.grid_size,      # Normalized x [0,1]
+                    y / self.grid_size,      # Normalized y [0,1]  
+                    orientation / 4.0,       # Normalized orientation [0,1]
+                    1.0                      # Valid flag
+                ]
         
         # Netlist features
         netlist_features = np.zeros((self.max_components, 4))
@@ -315,7 +320,7 @@ class AnalogLayoutEnv(gym.Env):
         
         return {
             "component_graph": adj_matrix.astype(np.float32),
-            "placed_components": placed_grid.astype(np.int8),
+            "placed_components_list": placed_components_list.astype(np.float32),
             "netlist_features": netlist_features.astype(np.float32),
             "placement_mask": self.placed_mask.astype(np.int8)
         }

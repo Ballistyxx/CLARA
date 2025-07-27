@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+GRID_AGNOSTIC_CONVERSION_SUMMARY.md
+UPDATED_RUN_MODEL_SUMMARY.md

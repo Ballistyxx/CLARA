@@ -10,8 +10,8 @@ import seaborn as sns
 
 class AnalogLayoutVisualizer:
     """Visualization tools for analog IC layouts."""
-    
-    def __init__(self, grid_size: int = 20, figsize: Tuple[int, int] = (12, 10)):
+
+    def __init__(self, grid_size: int = 64, figsize: Tuple[int, int] = (12, 10)):
         self.grid_size = grid_size
         self.figsize = figsize
         

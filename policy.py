@@ -5,6 +5,7 @@ import numpy as np
 from typing import Dict, Tuple, Any, Optional
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import Schedule
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 try:
     from gymnasium import spaces
 except ImportError:
@@ -90,43 +91,36 @@ class GraphNeuralNetwork(nn.Module):
         return graph_embedding
 
 
-class PlacementStateEncoder(nn.Module):
-    """Encoder for the current placement state (placed components grid)."""
+class ComponentListEncoder(nn.Module):
+    """Encoder for component list with normalized positions (grid-agnostic)."""
     
-    def __init__(self, grid_size: int = 20, max_components: int = 10, output_dim: int = 64):
+    def __init__(self, max_components: int = 10, output_dim: int = 64):
         super().__init__()
         
-        self.grid_size = grid_size
         self.max_components = max_components
+        self.output_dim = output_dim
         
-        # 3D CNN for processing placed components grid
-        self.conv3d = nn.Sequential(
-            nn.Conv3d(1, 16, kernel_size=(3, 3, 3), padding=1),
+        # Process component list directly with linear layers
+        self.component_encoder = nn.Sequential(
+            nn.Linear(max_components * 4, 128),  # [x, y, orient, valid] × max_components
             nn.ReLU(),
-            nn.Conv3d(16, 32, kernel_size=(3, 3, 3), padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool3d((4, 4, 4))  # Reduce spatial dimensions
+            nn.Dropout(0.1),
+            nn.Linear(128, output_dim)
         )
-        
-        # Flatten and project
-        self.fc = nn.Linear(32 * 4 * 4 * 4, output_dim)
     
-    def forward(self, placed_components: torch.Tensor) -> torch.Tensor:
+    def forward(self, component_list: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            placed_components: [batch_size, grid_size, grid_size, max_components]
+            component_list: [batch_size, max_components, 4] - [norm_x, norm_y, norm_orientation, valid]
         Returns:
             placement_embedding: [batch_size, output_dim]
         """
-        # Reshape for 3D conv: [batch_size, 1, grid_size, grid_size, max_components]
-        x = placed_components.unsqueeze(1)
+        batch_size = component_list.shape[0]
+        # Flatten component list: [batch_size, max_components * 4]
+        flattened = component_list.view(batch_size, -1)
         
-        # Apply 3D convolution
-        x = self.conv3d(x)
-        
-        # Flatten and project
-        x = x.view(x.size(0), -1)
-        placement_embedding = self.fc(x)
+        # Process through encoder
+        placement_embedding = self.component_encoder(flattened)
         
         return placement_embedding
 
@@ -196,7 +190,7 @@ class AnalogLayoutPolicy(ActorCriticPolicy):
                  sde_net_arch: Optional[list] = None,
                  use_expln: bool = False,
                  squash_output: bool = False,
-                 features_extractor_class=None,
+                 features_extractor_class=BaseFeaturesExtractor,
                  features_extractor_kwargs: Optional[Dict[str, Any]] = None,
                  normalize_images: bool = True,
                  optimizer_class: type = torch.optim.Adam,
@@ -218,7 +212,6 @@ class AnalogLayoutPolicy(ActorCriticPolicy):
         # Extract dimensions from observation space
         obs_dict = observation_space.spaces
         self.max_components = obs_dict["component_graph"].shape[0]
-        self.grid_size = obs_dict["placed_components"].shape[0]
         self.node_features = obs_dict["netlist_features"].shape[1]
         
         # Extract action space dimensions
@@ -240,9 +233,8 @@ class AnalogLayoutPolicy(ActorCriticPolicy):
             use_attention=True
         )
         
-        # Placement state encoder
-        self.placement_encoder = PlacementStateEncoder(
-            grid_size=self.grid_size,
+        # Component list encoder (grid-agnostic)
+        self.placement_encoder = ComponentListEncoder(
             max_components=self.max_components,
             output_dim=64
         )
@@ -280,8 +272,8 @@ class AnalogLayoutPolicy(ActorCriticPolicy):
         
         graph_features = torch.stack(graph_embeddings, dim=0)
         
-        # Process placement state
-        placement_features = self.placement_encoder(obs["placed_components"])
+        # Process placement state (component list)
+        placement_features = self.placement_encoder(obs["placed_components_list"])
         
         # Process placement mask
         mask_features = self.mask_encoder(obs["placement_mask"].float())
