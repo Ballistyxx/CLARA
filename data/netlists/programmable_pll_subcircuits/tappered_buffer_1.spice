@@ -1,0 +1,14 @@
+** sym_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/Tappered-Buffer_1.sym
+** sch_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/Tappered-Buffer_1.sch
+.subckt Tappered-Buffer_1 VSS VDD OUT IN
+*.PININFO VDD:B VSS:B IN:I OUT:O
+XM1 net1 IN VDD VDD sky130_fd_pr__pfet_01v8 L=0.3 W=4 nf=1 m=2
+XM2 net2 net1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.3 W=8 nf=1 m=2
+XM3 net3 net2 VDD VDD sky130_fd_pr__pfet_01v8 L=0.3 W=16 nf=1 m=2
+XM5 net1 IN VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=2 nf=1 m=2
+XM6 net2 net1 VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=4 nf=1 m=2
+XM7 net3 net2 VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=8 nf=1 m=2
+XM4 OUT net3 VDD VDD sky130_fd_pr__pfet_01v8 L=0.3 W=32 nf=1 m=2
+XM8 OUT net3 VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=16 nf=1 m=2
+XM9 VSS VSS VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=30 nf=1 m=2
+.ends

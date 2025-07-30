@@ -1,0 +1,15 @@
+** sym_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/DelayCell_1.sym
+** sch_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/DelayCell_1.sch
+.subckt DelayCell_1 VDD VSS IN INB VCTRL VCTRL2 OUT OUTB
+*.PININFO VDD:B VSS:B IN:I INB:I VCTRL:I VCTRL2:I OUT:O OUTB:O
+XM1 OUTB OUT VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 m=1
+XM2 OUT VCTRL VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=5 nf=1 m=1
+XM3 OUT OUTB VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=1 nf=1 m=1
+XM4 OUTB VCTRL VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=5 nf=1 m=1
+XM6 OUT IN net1 VSS sky130_fd_pr__nfet_01v8 L=0.5 W=5 nf=1 m=1
+XM7 OUTB INB net1 VSS sky130_fd_pr__nfet_01v8 L=0.5 W=5 nf=1 m=1
+XM8 net1 VCTRL2 VSS VSS sky130_fd_pr__nfet_01v8 L=0.5 W=10 nf=1 m=1
+XM5 VDD VDD VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1 m=1
+XM9 VSS VSS VSS VSS sky130_fd_pr__nfet_01v8 L=0.5 W=6 nf=1 m=1
+.ends
+

@@ -1,0 +1,13 @@
+** sym_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/CP.sym
+** sch_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/CP.sch
+.subckt CP_M10_size_up VDD ITAIL ITAIL1 VCTRL UP down VSS
+*.PININFO UP:I down:I VCTRL:B VDD:B VSS:B ITAIL1:B ITAIL:B
+XM8 net2 UP VDD VDD sky130_fd_pr__pfet_01v8 L=0.3 W=0.8 nf=1 m=1
+XM1 net1 net2 VDD VDD sky130_fd_pr__pfet_01v8 L=1 W=12 nf=1 m=1
+XM10 net2 UP VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=0.4 nf=1 m=1
+XM2 VCTRL ITAIL net1 VDD sky130_fd_pr__pfet_01v8 L=1 W=12 nf=1 m=1
+XM3 ITAIL ITAIL VDD VDD sky130_fd_pr__pfet_01v8 L=1 W=12 nf=1 m=1
+XM5 ITAIL1 ITAIL1 VSS VSS sky130_fd_pr__nfet_01v8 L=1 W=4 nf=1 m=1
+XM6 VCTRL ITAIL1 net3 net3 sky130_fd_pr__nfet_01v8 L=1 W=4 nf=1 m=1
+XM4 net3 down VSS VSS sky130_fd_pr__nfet_01v8 L=1 W=4 nf=1 m=1
+.ends

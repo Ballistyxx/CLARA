@@ -324,7 +324,7 @@ class AnalogLayoutEnv(gym.Env):
             "netlist_features": netlist_features.astype(np.float32),
             "placement_mask": self.placed_mask.astype(np.int8)
         }
-    
+    # current circuit generation method; fully random
     def _generate_random_circuit(self) -> nx.Graph:
         """Generate a random small analog circuit for testing."""
         num_components = np.random.randint(3, min(8, self.max_components + 1))

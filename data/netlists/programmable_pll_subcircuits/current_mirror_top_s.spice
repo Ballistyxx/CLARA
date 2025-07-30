@@ -1,0 +1,12 @@
+** sym_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/Current_Mirror_Top_s.sym
+** sch_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/Current_Mirror_Top_s.sch
+.subckt Current_Mirror_Top_s VDD ITAIL ITAIL_SRC ITAIL_SINK VSS
+*.PININFO ITAIL:I VDD:B VSS:B ITAIL_SRC:O ITAIL_SINK:O
+XM8 net1 G_source_up VDD VDD sky130_fd_pr__pfet_01v8 L=2 W=8 nf=1 m=1
+XM6 G_source_up G_source_up VDD VDD sky130_fd_pr__pfet_01v8 L=2 W=40 nf=1 m=1
+XM1 ITAIL ITAIL VSS VSS sky130_fd_pr__nfet_01v8 L=2 W=20 nf=1 m=1
+XM2 G_source_up ITAIL VSS VSS sky130_fd_pr__nfet_01v8 L=2 W=20 nf=1 m=1
+XM3 net1 net1 VSS VSS sky130_fd_pr__nfet_01v8 L=2 W=4.2 nf=1 m=1
+XM4 ITAIL_SRC G_source_up VDD VDD sky130_fd_pr__pfet_01v8 L=2 W=8 nf=1 m=1
+XM9 ITAIL_SINK ITAIL VSS VSS sky130_fd_pr__nfet_01v8 L=2 W=4.2 nf=1 m=1
+.ends

@@ -8,3 +8,4 @@ __pycache__/
 *.pyd
 GRID_AGNOSTIC_CONVERSION_SUMMARY.md
 UPDATED_RUN_MODEL_SUMMARY.md
+parsed_circuit_data.json

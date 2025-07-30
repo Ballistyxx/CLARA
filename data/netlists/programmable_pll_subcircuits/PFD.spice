@@ -1,0 +1,37 @@
+** sym_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/PFD.sym
+** sch_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/PFD.sch
+.subckt PFD VDD VSS FDIV FIN UP DOWN
+*.PININFO FDIV:I FIN:I UP:O DOWN:O VSS:B VDD:B
+XM2 A FIN VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM3 x1 A VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2.4 nf=1 m=1
+XM4 x1 x1 net1 VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.9 nf=1 m=1
+XM5 net1 x2 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.9 nf=1 m=1
+XM6 x3 x1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.3 W=0.9 nf=1 m=1
+XM7 A x1b net2 VSS sky130_fd_pr__nfet_01v8 L=0.3 W=0.6 nf=1 m=1
+XM8 net2 x2b net12 VSS sky130_fd_pr__nfet_01v8 L=0.3 W=0.6 nf=1 m=1
+XM9 x1 FIN net3 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM10 net3 A VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM11 x3 x1 net4 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM12 net4 x1 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM13 x3 x2b VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=2.4 nf=1 m=1
+XM15 B FDIV VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM16 x2 B VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2.4 nf=1 m=1
+XM17 x2 x2 net5 VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.9 nf=1 m=1
+XM18 net5 x1 VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.9 nf=1 m=1
+XM19 x4 x2 VDD VDD sky130_fd_pr__pfet_01v8 L=0.3 W=0.9 nf=1 m=1
+XM20 B x2b net6 VSS sky130_fd_pr__nfet_01v8 L=0.3 W=0.6 nf=1 m=1
+XM21 net6 x1b net11 VSS sky130_fd_pr__nfet_01v8 L=0.3 W=0.6 nf=1 m=1
+XM22 x2 FDIV net8 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM23 net8 B VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM24 x4 x2 net7 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM25 net7 x2 VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.6 nf=1 m=1
+XM26 x4 x1b VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=2.4 nf=1 m=1
+XM1 net11 FDIV VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=0.6 nf=1 m=1
+XM14 net12 FIN VSS VSS sky130_fd_pr__nfet_01v8 L=0.3 W=0.6 nf=1 m=1
+x1 VDD VSS x1 x1b PFD_INV
+x2 VDD VSS x2 x2b PFD_INV
+x3 VDD VSS x3 net10 PFD_INV
+x5 VDD VSS x4 net9 PFD_INV
+x6 VDD VSS net9 DOWN PFD_INV
+x4 VDD VSS net10 UP PFD_INV
+.ends

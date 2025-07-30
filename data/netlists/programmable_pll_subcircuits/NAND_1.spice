@@ -1,0 +1,9 @@
+** sym_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/NAND_1.sym
+** sch_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/NAND_1.sch
+.subckt NAND_1 VDD VOUT A B VSS
+*.PININFO VDD:B VSS:B A:I B:I VOUT:O
+XM1 VOUT A net1 VSS sky130_fd_pr__nfet_01v8 L=0.2 W=3 nf=1 m=1
+XM2 net1 B VSS VSS sky130_fd_pr__nfet_01v8 L=0.2 W=3 nf=1 m=1
+XM6 VOUT B VDD VDD sky130_fd_pr__pfet_01v8 L=0.2 W=3 nf=1 m=1
+XM7 VOUT A VDD VDD sky130_fd_pr__pfet_01v8 L=0.2 W=3 nf=1 m=1
+.ends

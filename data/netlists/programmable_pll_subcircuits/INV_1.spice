@@ -1,0 +1,8 @@
+** sym_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/INV_1.sym
+** sch_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/INV_1.sch
+.subckt INV_1 VSS VDD OUT IN
+*.PININFO VDD:B VSS:B IN:I OUT:O
+XM1 OUT IN VSS VSS sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 m=2
+XM2 OUT IN VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=4 nf=1 m=4
+XM3 VSS VSS VSS VSS sky130_fd_pr__nfet_01v8 L=0.5 W=4 nf=1 m=2
+.ends

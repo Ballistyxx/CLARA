@@ -1,0 +1,7 @@
+** sym_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/inverter.sym
+** sch_path: /home/tim/gits/chipalooza_projects_2/dependencies/sky130_aa_ip__programmable_pll/xschem/inverter.sch
+.subckt inverter VDD VIN VOUT VSS
+*.PININFO VDD:B VIN:I VOUT:O VSS:B
+XM5 VOUT VIN VDD VDD sky130_fd_pr__pfet_01v8 L=0.2 W=5 nf=1 m=1
+XM1 VOUT VIN VSS VSS sky130_fd_pr__nfet_01v8 L=0.2 W=2.5 nf=1 m=1
+.ends
