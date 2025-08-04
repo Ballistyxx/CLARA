@@ -24,6 +24,7 @@ class ComponentType(Enum):
     CURRENT_SOURCE = 5
     VOLTAGE_SOURCE = 6
     SUBCIRCUIT = 7
+    OTHER = 8  # For other X-components not fitting specific categories
 
 
 @dataclass
@@ -38,10 +39,13 @@ class ComponentInfo:
     multiplier: int  # m parameter (creates multiple identical components)
     nf: int = 1     # Number of fingers
     spice_params: Dict[str, Any] = None
+    clara_override: Dict[str, Any] = None  # CLARA override parameters
     
     def __post_init__(self):
         if self.spice_params is None:
             self.spice_params = {}
+        if self.clara_override is None:
+            self.clara_override = {}
 
 
 class EnhancedSpiceParser:
@@ -65,7 +69,14 @@ class EnhancedSpiceParser:
                 r'res', r'resistor', r'sky130_fd_pr__res'
             ],
             ComponentType.CAPACITOR: [
-                r'cap', r'capacitor', r'sky130_fd_pr__cap'
+                r'cap', r'capacitor', r'sky130_fd_pr__cap',
+                r'mim'  # Metal-insulator-metal capacitors
+            ],
+            ComponentType.INDUCTOR: [
+                r'ind', r'inductor', r'sky130_fd_pr__ind'
+            ],
+            ComponentType.SUBCIRCUIT: [
+                r'lsbuflv2hv', r'inv', r'nand', r'nor'  # Common subcircuit patterns
             ]
         }
         
@@ -141,28 +152,65 @@ class EnhancedSpiceParser:
         return circuit_data
     
     def _parse_component_line(self, line: str, line_num: int) -> Optional[ComponentInfo]:
-        """Parse a single SPICE component line."""
-        parts = line.split()
+        """Parse a single SPICE component line with CLARA comment support."""
+        # Split main line from comment
+        main_line, clara_override = self._extract_clara_comment(line)
+        
+        parts = main_line.split()
         if len(parts) < 3:
             return None
         
         name = parts[0]
         
-        # Only parse transistor components (XM prefix)
-        if not name.startswith('XM'):
+        # Parse any component starting with X (case insensitive)
+        if not name.upper().startswith('X'):
             return None
         
         try:
-            # Standard format: XMx node1 node2 node3 node4 device_model L=x W=y nf=z m=w
-            if len(parts) < 5:
-                return None
-            
-            nodes = parts[1:5]  # Typically drain, gate, source, bulk
-            device_model = parts[5] if len(parts) > 5 else ""
+            # Determine component structure based on prefix
+            if name.upper().startswith('XM'):
+                # Transistor: XMx node1 node2 node3 node4 device_model L=x W=y nf=z m=w
+                if len(parts) < 5:
+                    return None
+                nodes = parts[1:5]  # Typically drain, gate, source, bulk
+                device_model = parts[5] if len(parts) > 5 else ""
+                param_start_idx = 6
+            elif name.upper().startswith('XR'):
+                # Resistor: XRx node1 node2 device_model L=x mult=y m=z
+                if len(parts) < 4:
+                    return None
+                nodes = parts[1:3]  # Two nodes for resistor
+                device_model = parts[3] if len(parts) > 3 else ""
+                param_start_idx = 4
+            elif name.upper().startswith('XC'):
+                # Capacitor: XCx node1 node2 device_model W=x L=y m=z
+                if len(parts) < 4:
+                    return None
+                nodes = parts[1:3]  # Two nodes for capacitor
+                device_model = parts[3] if len(parts) > 3 else ""
+                param_start_idx = 4
+            else:
+                # Generic X-component: Xx node1 node2 ... nodeN device_model [params]
+                # Find device model (usually the last non-parameter part)
+                device_model = ""
+                param_start_idx = len(parts)
+                
+                for i in range(len(parts) - 1, 0, -1):
+                    if '=' not in parts[i]:
+                        device_model = parts[i]
+                        param_start_idx = i + 1
+                        nodes = parts[1:i]
+                        break
+                
+                if not device_model:
+                    # Fallback: assume last part is device model
+                    nodes = parts[1:-1]
+                    device_model = parts[-1] if len(parts) > 1 else ""
+                    param_start_idx = len(parts)
             
             # Parse parameters
             params = {}
-            for part in parts[6:]:
+            for part in parts[param_start_idx:]:
                 if '=' in part:
                     key, value = part.split('=', 1)
                     try:
@@ -171,18 +219,21 @@ class EnhancedSpiceParser:
                     except ValueError:
                         params[key.upper()] = value
             
+            # Apply CLARA overrides if present
+            if clara_override:
+                params.update(clara_override)
+            
             # Extract key parameters
             length = params.get('L', 0.0)
             width = params.get('W', 0.0)
             multiplier = int(params.get('M', 1))
             nf = int(params.get('NF', 1))
+            mult = params.get('MULT', 1)  # Alternative multiplier parameter
+            if mult != 1:
+                multiplier = int(mult)
             
-            # Determine component type from device model
-            component_type = self._identify_component_type(device_model)
-            
-            if component_type is None:
-                print(f"   Warning: Unknown device model '{device_model}' at line {line_num}")
-                return None
+            # Determine component type from device model and name
+            component_type = self._identify_component_type(name, device_model)
             
             return ComponentInfo(
                 name=name,
@@ -193,23 +244,75 @@ class EnhancedSpiceParser:
                 width=width,
                 multiplier=multiplier,
                 nf=nf,
-                spice_params=params
+                spice_params=params,
+                clara_override=clara_override if clara_override else {}
             )
-            
+        
         except (ValueError, IndexError) as e:
-            print(f"   Warning: Failed to parse line {line_num}: {line} - {e}")
+            print(f"   Warning: Failed to parse component on line {line_num}: {line}")
+            print(f"   Error: {e}")
             return None
     
-    def _identify_component_type(self, device_model: str) -> Optional[ComponentType]:
-        """Identify component type from device model string."""
+    def _extract_clara_comment(self, line: str) -> Tuple[str, Optional[Dict[str, Any]]]:
+        """Extract CLARA override comment from SPICE line."""
+        if ';CLARA' not in line:
+            return line, None
+        
+        # Split at the first occurrence of ;CLARA
+        main_part, comment_part = line.split(';CLARA', 1)
+        
+        try:
+            # Parse CLARA override parameters
+            clara_params = {}
+            
+            # Look for override-size pattern
+            if 'override-size' in comment_part:
+                # Pattern: ;CLARA override-size L=20 W=50 nf=1 m=1
+                override_part = comment_part.split('override-size', 1)[1].strip()
+                
+                # Parse parameters in the override
+                for param in override_part.split():
+                    if '=' in param:
+                        key, value = param.split('=', 1)
+                        try:
+                            clara_params[key.upper()] = float(value)
+                        except ValueError:
+                            clara_params[key.upper()] = value
+            
+            print(f"   CLARA override found: {clara_params}")
+            return main_part.strip(), clara_params
+        
+        except Exception as e:
+            print(f"   Warning: Failed to parse CLARA comment: {comment_part}")
+            print(f"   Error: {e}")
+            return main_part.strip(), None
+    
+    def _identify_component_type(self, name: str, device_model: str) -> ComponentType:
+        """Identify component type from name and device model."""
+        name_upper = name.upper()
         model_lower = device_model.lower()
         
+        # Check device model patterns first
         for comp_type, patterns in self.device_patterns.items():
             for pattern in patterns:
-                if pattern in model_lower:
+                if re.search(pattern, model_lower):
                     return comp_type
         
-        return None
+        # Fallback to name-based identification
+        if name_upper.startswith('XM'):
+            # Default transistor type identification
+            if 'pfet' in model_lower or 'pmos' in model_lower or 'p_' in model_lower:
+                return ComponentType.PMOS
+            else:
+                return ComponentType.NMOS
+        elif name_upper.startswith('XR'):
+            return ComponentType.RESISTOR
+        elif name_upper.startswith('XC'):
+            return ComponentType.CAPACITOR
+        elif name_upper.startswith('XL'):
+            return ComponentType.INDUCTOR
+        else:
+            return ComponentType.OTHER
     
     def _expand_multiplied_components(self, raw_components: List[ComponentInfo]) -> List[ComponentInfo]:
         """Expand components with multiplier > 1 into multiple identical components."""
@@ -230,7 +333,8 @@ class EnhancedSpiceParser:
                         width=comp.width,
                         multiplier=1,  # Individual components have multiplier 1
                         nf=comp.nf,
-                        spice_params=comp.spice_params.copy()
+                        spice_params=comp.spice_params.copy(),
+                        clara_override=comp.clara_override.copy()
                     )
                     expanded.append(new_comp)
         
@@ -326,7 +430,8 @@ class EnhancedSpiceParser:
             'length': comp.length,
             'width': comp.width,
             'nf': comp.nf,
-            'spice_params': comp.spice_params
+            'spice_params': comp.spice_params,
+            'clara_override': comp.clara_override
         }
     
     def _calculate_statistics(self, components: List[ComponentInfo]) -> Dict[str, Any]:
