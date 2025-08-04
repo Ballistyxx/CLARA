@@ -135,15 +135,30 @@ class AnalogLayoutVisualizer:
         )
         ax.add_patch(rect)
         
-        # Add component label
+        # Add component label using device model
         center_x = x + width / 2
         center_y = y + height / 2
         
-        comp_name = self.component_names.get(comp_type, 'X')
-        label = f"{comp_name}{comp_id}"
+        # Use device model if available, otherwise fall back to generic name
+        device_model = component_attrs.get('device_model', '')
+        spice_name = component_attrs.get('spice_name', '')
+        
+        if device_model:
+            # Use the complete device model name
+            label = device_model
+        elif spice_name:
+            # Use original SPICE component name
+            label = spice_name
+        else:
+            # Fallback to generic naming
+            comp_name = self.component_names.get(comp_type, 'X')
+            label = f"{comp_name}{comp_id}"
+        
+        # Adjust font size based on label length to ensure readability
+        font_size = max(4, min(8, 60 // len(label))) if len(label) > 8 else 8
         
         ax.text(center_x, center_y, label, 
-               ha='center', va='center', fontsize=8, fontweight='bold',
+               ha='center', va='center', fontsize=font_size, fontweight='bold',
                color='white', 
                bbox=dict(boxstyle='round,pad=0.1', facecolor='black', alpha=0.7))
         
