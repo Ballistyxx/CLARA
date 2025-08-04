@@ -1,0 +1,266 @@
+# Training configuration for analog layout PPO
+# Hyperparameters, callbacks, and training setup
+
+training:
+  # Algorithm settings
+  algorithm: "PPO"
+  policy_type: "RelationalPolicy"  # Custom policy
+  
+  # Total training
+  total_timesteps: 500000
+  save_frequency: 20000
+  eval_frequency: 10000
+  
+  # PPO hyperparameters
+  ppo:
+    learning_rate: 1e-4
+    n_steps: 4096        # Steps per environment per update
+    batch_size: 256      # Batch size for training
+    n_epochs: 10         # Epochs per update
+    gamma: 0.99          # Discount factor
+    gae_lambda: 0.95     # GAE lambda
+    clip_range: 0.2      # PPO clip range
+    clip_range_vf: null  # Value function clip range (null = same as clip_range)
+    ent_coef: 0.005      # Entropy coefficient
+    vf_coef: 0.5         # Value function coefficient
+    max_grad_norm: 0.5   # Gradient clipping
+    
+    # Learning rate scheduling
+    lr_schedule: "constant"  # "constant", "linear", "cosine"
+    
+    # Entropy scheduling
+    ent_schedule: "linear_decay"
+    ent_final: 0.001
+    
+  # Policy network architecture
+  policy:
+    # GNN settings
+    use_gnn: true
+    gnn_type: "GAT"      # "GAT", "GCN", "GraphSAGE"
+    gnn_layers: 3
+    gnn_hidden_dim: 128
+    gnn_heads: 4         # For GAT
+    gnn_dropout: 0.1
+    
+    # Spatial encoder
+    spatial_encoder: "CNN"
+    cnn_channels: [32, 64, 128]
+    cnn_kernels: [3, 3, 3]
+    
+    # Action heads
+    separate_heads: true
+    head_hidden_dim: 64
+    
+    # Value network  
+    shared_features: true
+    value_hidden_dim: 128
+    
+    # Activation functions
+    activation: "relu"
+    final_activation: "tanh"
+    
+    # Initialization
+    orthogonal_init: true
+    init_scale: 1.0
+
+# Environment settings for training
+env_training:
+  n_envs: 4               # Parallel environments
+  env_type: "sync"        # "sync", "async"
+  
+  # Environment parameters
+  grid_size: 64
+  max_components: 16
+  enable_action_masking: true
+  
+  # Curriculum learning
+  use_curriculum: true
+  curriculum_config: "configs/curriculum_stages.yaml"
+  
+  # Episode diversity
+  episode_diversity: true
+  circuit_mix_ratio:
+    generated: 0.7
+    spice: 0.2
+    json: 0.1
+
+# Evaluation settings
+evaluation:
+  # Evaluation environments
+  n_eval_envs: 8
+  eval_episodes: 50
+  
+  # Evaluation circuits
+  eval_circuits:
+    - "differential_pair_4comp"
+    - "current_mirror_6comp"
+    - "ota_12comp"
+    - "bandgap_16comp"
+  
+  # Metrics to track
+  eval_metrics:
+    - completion
+    - row_consistency
+    - symmetry_score
+    - pattern_validity
+    - crossings
+    - analog_score
+    - total_score
+  
+  # Success criteria
+  success_thresholds:
+    completion: 0.95
+    row_consistency: 0.95
+    symmetry_score: 0.85
+    analog_score: 0.8
+  
+  deterministic: true
+  render: false
+
+# Callbacks and monitoring
+callbacks:
+  # Model checkpointing
+  checkpoint:
+    enabled: true
+    save_freq: 20000
+    save_path: "logs/checkpoints"
+    name_prefix: "clara_analog"
+    
+  # Evaluation callback
+  eval_callback:
+    enabled: true
+    eval_freq: 10000
+    n_eval_episodes: 50
+    deterministic: true
+    save_best_model: true
+    
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 100000      # Timesteps
+    min_improvement: 0.01
+    monitor: "eval/analog_score"
+    
+  # TensorBoard logging
+  tensorboard:
+    enabled: true
+    log_dir: "logs/tensorboard"
+    
+  # Custom callbacks
+  curriculum_callback:
+    enabled: true
+    check_frequency: 10000
+    
+  metrics_callback:
+    enabled: true
+    log_frequency: 1000
+    detailed_logging: false
+
+# Logging and monitoring
+logging:
+  # General logging
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # Weights & Biases
+  wandb:
+    enabled: false
+    project: "clara-analog-layout"
+    entity: null
+    tags: ["analog", "layout", "ppo"]
+    
+    config_sync: true
+    log_gradients: false
+    log_model: true
+    
+  # File logging
+  file_logging:
+    enabled: true
+    log_file: "logs/training.log"
+    max_size: "100MB"
+    backup_count: 5
+  
+  # Progress tracking
+  progress:
+    enabled: true
+    update_frequency: 1000
+    show_eta: true
+
+# Hardware and performance
+hardware:
+  # Device selection
+  device: "auto"          # "auto", "cpu", "cuda", "mps"
+  
+  # Memory management
+  pin_memory: true
+  memory_efficient: false
+  
+  # Multi-threading
+  n_cpu_threads: null     # null = auto-detect
+  
+  # Mixed precision
+  mixed_precision: false
+
+# Reproducibility
+reproducibility:
+  seed: 42
+  deterministic: false    # Full determinism (slower)
+  benchmark: true         # Optimize for consistent input sizes
+
+# Model saving and loading
+model:
+  # Save settings
+  save_format: "zip"      # "zip", "pkl"
+  save_replay_buffer: false
+  
+  # Loading
+  pretrained_model: null
+  fine_tune: false
+  freeze_features: false
+  
+  # Model compression
+  compress: false
+  quantization: false
+
+# Debugging and development
+debug:
+  # Debugging modes
+  debug_mode: false
+  verbose: false
+  
+  # Profiling
+  profile: false
+  profile_steps: 1000
+  
+  # Validation
+  validate_env: true
+  validate_policy: true
+  
+  # Testing
+  dry_run: false
+  test_episodes: 10
+  
+  # Visualization during training
+  visualize_training: false
+  viz_frequency: 10000
+  save_visualizations: false
+
+# Experiment management  
+experiment:
+  name: "analog_layout_ppo"
+  version: "1.0"
+  description: "Analog-friendly IC layout with PPO and relational actions"
+  
+  # Tags for organization
+  tags:
+    - "analog_layout"
+    - "reinforcement_learning"
+    - "ppo"
+    - "relational_actions"
+    - "row_discipline"
+  
+  # Metadata
+  metadata:
+    author: "CLARA Team"
+    contact: "clara@example.com"
+    created: "2024"

@@ -14,7 +14,7 @@ from stable_baselines3.common.type_aliases import Schedule
 
 def test_component_list_encoder():
     """Test the ComponentListEncoder directly."""
-    print("🧪 Testing ComponentListEncoder...")
+    print("Testing ComponentListEncoder...")
     
     try:
         max_components = 8
@@ -36,14 +36,14 @@ def test_component_list_encoder():
         expected_shape = (batch_size, 64)
         assert output.shape == expected_shape, f"Wrong output shape: {output.shape} vs {expected_shape}"
         
-        print(f"✅ ComponentListEncoder test passed")
+        print(f"ComponentListEncoder test passed")
         print(f"   Input shape: {component_list.shape}")
         print(f"   Output shape: {output.shape}")
         
         return True
         
     except Exception as e:
-        print(f"❌ ComponentListEncoder test failed: {e}")
+        print(f"ComponentListEncoder test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -51,7 +51,7 @@ def test_component_list_encoder():
 
 def test_policy_creation():
     """Test creating the policy with new observation space."""
-    print("\n🧪 Testing policy creation...")
+    print("\nTesting policy creation...")
     
     try:
         # Create environment to get observation/action spaces
@@ -68,7 +68,7 @@ def test_policy_creation():
             lr_schedule=lr_schedule
         )
         
-        print(f"✅ Policy creation successful")
+        print(f"Policy creation successful")
         print(f"   Policy type: {type(policy).__name__}")
         print(f"   Max components: {policy.max_components}")
         print(f"   Node features: {policy.node_features}")
@@ -79,7 +79,7 @@ def test_policy_creation():
         return True
         
     except Exception as e:
-        print(f"❌ Policy creation failed: {e}")
+        print(f"Policy creation failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -87,7 +87,7 @@ def test_policy_creation():
 
 def test_policy_forward_pass():
     """Test policy forward pass with new observation format."""
-    print("\n🧪 Testing policy forward pass...")
+    print("\nTesting policy forward pass...")
     
     try:
         # Create environment and policy
@@ -118,7 +118,7 @@ def test_policy_forward_pass():
         with torch.no_grad():
             actions, values, log_probs = policy.forward(batch_obs, deterministic=True)
         
-        print(f"✅ Policy forward pass successful")
+        print(f"Policy forward pass successful")
         print(f"   Actions shape: {actions.shape}")
         print(f"   Values shape: {values.shape}")
         print(f"   Log probs shape: {log_probs.shape}")
@@ -127,7 +127,7 @@ def test_policy_forward_pass():
         return True
         
     except Exception as e:
-        print(f"❌ Policy forward pass failed: {e}")
+        print(f"Policy forward pass failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -135,7 +135,7 @@ def test_policy_forward_pass():
 
 def test_policy_evaluate_actions():
     """Test policy action evaluation for training."""
-    print("\n🧪 Testing policy action evaluation...")
+    print("\nTesting policy action evaluation...")
     
     try:
         # Create environment and policy
@@ -166,7 +166,7 @@ def test_policy_evaluate_actions():
         with torch.no_grad():
             values, log_probs, entropy = policy.evaluate_actions(batch_obs, actions)
         
-        print(f"✅ Policy action evaluation successful")
+        print(f"Policy action evaluation successful")
         print(f"   Values shape: {values.shape}")
         print(f"   Log probs shape: {log_probs.shape}")
         print(f"   Entropy shape: {entropy.shape}")
@@ -174,7 +174,7 @@ def test_policy_evaluate_actions():
         return True
         
     except Exception as e:
-        print(f"❌ Policy action evaluation failed: {e}")
+        print(f"Policy action evaluation failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -182,7 +182,7 @@ def test_policy_evaluate_actions():
 
 def test_grid_size_independence():
     """Test that policy works with different grid sizes."""
-    print("\n🧪 Testing grid size independence...")
+    print("\nTesting grid size independence...")
     
     try:
         def lr_schedule(progress_remaining: float) -> float:
@@ -223,7 +223,7 @@ def test_grid_size_independence():
                 'component_list_shape': batch_obs['placed_components_list'].shape
             }
         
-        print(f"✅ Grid size independence test passed")
+        print(f"Grid size independence test passed")
         for grid_size, data in results.items():
             print(f"   Grid {grid_size}: actions={data['actions']}, value={data['values']:.3f}")
             print(f"                comp_list_shape={data['component_list_shape']}")
@@ -235,7 +235,7 @@ def test_grid_size_independence():
         return True
         
     except Exception as e:
-        print(f"❌ Grid size independence test failed: {e}")
+        print(f"Grid size independence test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -243,7 +243,7 @@ def test_grid_size_independence():
 
 def main():
     """Run all policy tests."""
-    print("🚀 CLARA Grid-Agnostic Policy Test Suite")
+    print("CLARA Grid-Agnostic Policy Test Suite")
     print("=" * 50)
     
     tests = [
@@ -261,16 +261,16 @@ def main():
             result = test_func()
             results.append(result)
         except Exception as e:
-            print(f"❌ {test_name} crashed: {e}")
+            print(f"{test_name} crashed: {e}")
             results.append(False)
     
     # Summary
     print("\n" + "=" * 50)
-    print("🏁 Test Summary")
+    print("Test Summary")
     print("=" * 50)
     
     for i, (test_name, _) in enumerate(tests):
-        status = "✅ PASS" if results[i] else "❌ FAIL"
+        status = "PASS" if results[i] else "FAIL"
         print(f"{test_name}: {status}")
     
     passed = sum(results)
@@ -279,10 +279,10 @@ def main():
     print(f"\nOverall: {passed}/{total} tests passed")
     
     if passed == total:
-        print("🎉 All tests passed! Grid-agnostic policy is ready.")
+        print("All tests passed! Grid-agnostic policy is ready.")
         return 0
     else:
-        print("⚠️  Some tests failed. Please check the errors above.")
+        print(" Some tests failed. Please check the errors above.")
         return 1
 
 

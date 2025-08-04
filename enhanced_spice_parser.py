@@ -79,11 +79,22 @@ class EnhancedSpiceParser:
             ]
         }
         
-        # Power/ground nodes to exclude from connectivity
+        # Power/ground/bias nodes to exclude from connectivity
         self.power_nodes = {
             'vdd', 'vdd3v3', 'vdd1v8', 'vss', 'vss3v3', 'vss1v8', 
-            '0', 'gnd', 'ground', 'vcc', 'vee'
+            '0', 'gnd', 'ground', 'vcc', 'vee', 'avdd', 'avss', 'dvdd', 'dvss'
         }
+        
+        # Global/bias nodes that should be filtered to prevent connectivity explosion
+        self.global_node_patterns = [
+            'vbias', 'bias', 'vref', 'ref', 'clk', 'clock', 'enable', 'en',
+            'vbg', 'bandgap', 'start', 'ctrl', 'control', 'sub', 'bulk',
+            'vdd', 'vss', 'avdd', 'avss', 'dvdd', 'dvss'
+        ]
+        
+        # Connection limiting
+        self.max_connections_per_node = 8  # Limit connections per node
+        self.max_multiplier_for_connectivity = 10  # Don't expand huge multipliers for connectivity
     
     def parse_spice_file(self, filepath: str) -> Dict[str, Any]:
         """
@@ -95,7 +106,7 @@ class EnhancedSpiceParser:
         Returns:
             Dictionary containing parsed circuit data
         """
-        print(f"📄 Parsing SPICE file: {filepath}")
+        print(f"Parsing SPICE file: {filepath}")
         
         self.component_counter = 0
         self.node_map = {}
@@ -321,8 +332,14 @@ class EnhancedSpiceParser:
             if comp.multiplier <= 1:
                 expanded.append(comp)
             else:
+                # Limit expansion for very large multipliers to prevent circuit explosion
+                effective_multiplier = min(comp.multiplier, 50)  # Cap at 50 components
+                
+                if comp.multiplier > 50:
+                    print(f"   WARNING: Capping {comp.name} from m={comp.multiplier} to m={effective_multiplier}")
+                
                 # Create multiple identical components
-                for i in range(comp.multiplier):
+                for i in range(effective_multiplier):
                     new_comp = ComponentInfo(
                         name=f"{comp.name}_m{i}",
                         component_type=comp.component_type,
@@ -338,6 +355,13 @@ class EnhancedSpiceParser:
                     expanded.append(new_comp)
         
         return expanded
+    
+    def _is_global_node(self, node_lower: str) -> bool:
+        """Check if a node is a global/bias node that should be filtered."""
+        for pattern in self.global_node_patterns:
+            if pattern in node_lower:
+                return True
+        return False
     
     def _create_circuit_graph(self, components: List[ComponentInfo]) -> nx.Graph:
         """Create NetworkX graph for RL integration."""
@@ -384,26 +408,60 @@ class EnhancedSpiceParser:
         return -1  # No match found
     
     def _add_connectivity_edges(self, G: nx.Graph, components: List[ComponentInfo]):
-        """Add edges based on shared nodes (excluding power/ground)."""
-        # Create node-to-component mapping
+        """Add edges based on shared nodes with smart filtering to prevent explosion."""
+        print(f"   Adding connectivity edges with smart filtering...")
+        
+        # Create node-to-component mapping with filtering
         node_to_components = {}
+        filtered_nodes = set()
         
         for i, comp in enumerate(components):
             for node in comp.nodes:
                 node_lower = node.lower()
-                if node_lower not in self.power_nodes:
-                    if node not in node_to_components:
-                        node_to_components[node] = []
-                    node_to_components[node].append(i)
+                
+                # Skip power/ground nodes
+                if node_lower in self.power_nodes:
+                    continue
+                
+                # Skip global/bias nodes that cause connectivity explosion
+                if self._is_global_node(node_lower):
+                    filtered_nodes.add(node)
+                    continue
+                
+                if node not in node_to_components:
+                    node_to_components[node] = []
+                node_to_components[node].append(i)
         
-        # Add edges between components sharing nodes
+        # Report filtering stats
+        total_nodes = len(set(node for comp in components for node in comp.nodes))
+        filtered_count = len(filtered_nodes)
+        print(f"   Filtered {filtered_count}/{total_nodes} nodes as global/bias nodes")
+        
+        # Add edges with connection limiting
+        edges_added = 0
+        nodes_processed = 0
+        
         for node, comp_list in node_to_components.items():
-            if len(comp_list) > 1:
-                # Connect all components sharing this node
-                for i in range(len(comp_list)):
-                    for j in range(i + 1, len(comp_list)):
-                        if not G.has_edge(comp_list[i], comp_list[j]):
-                            G.add_edge(comp_list[i], comp_list[j])
+            nodes_processed += 1
+            
+            if len(comp_list) <= 1:
+                continue
+                
+            # Limit connections per node to prevent explosion
+            if len(comp_list) > self.max_connections_per_node:
+                print(f"   WARNING: Node '{node}' has {len(comp_list)} components, limiting to {self.max_connections_per_node}")
+                # Keep first N components (could be improved with smarter selection)
+                comp_list = comp_list[:self.max_connections_per_node]
+            
+            # Add edges between components sharing this node
+            for i in range(len(comp_list)):
+                for j in range(i + 1, len(comp_list)):
+                    if not G.has_edge(comp_list[i], comp_list[j]):
+                        G.add_edge(comp_list[i], comp_list[j])
+                        edges_added += 1
+        
+        print(f"   Added {edges_added} edges from {nodes_processed} signal nodes")
+        return edges_added
     
     def _create_connectivity_matrix(self, G: nx.Graph) -> List[List[int]]:
         """Create adjacency matrix representation."""
@@ -479,17 +537,17 @@ def parse_multiple_spice_files(directory: str) -> Dict[str, Any]:
     spice_dir = Path(directory)
     spice_files = list(spice_dir.glob("*.spice"))
     
-    print(f"🔍 Found {len(spice_files)} SPICE files in {directory}")
+    print(f"Found {len(spice_files)} SPICE files in {directory}")
     
     for spice_file in spice_files:
         try:
             circuit_data = parser.parse_spice_file(str(spice_file))
             results[spice_file.name] = circuit_data
             
-            print(f"✅ {spice_file.name}: {circuit_data['num_components']} components")
+            print(f"{spice_file.name}: {circuit_data['num_components']} components")
             
         except Exception as e:
-            print(f"❌ Failed to parse {spice_file.name}: {e}")
+            print(f"Failed to parse {spice_file.name}: {e}")
             results[spice_file.name] = {'error': str(e)}
     
     return results
@@ -510,10 +568,10 @@ if __name__ == "__main__":
     print("\\n" + "="*60)
     print("PARSED CIRCUIT DATA")
     print("="*60)
-    print(f"✅ Circuit data saved to {output_file}")
-    print(f"📊 Summary: {result['num_components']} components in '{result['subcircuit_name']}'")
+    print(f"Circuit data saved to {output_file}")
+    print(f"Summary: {result['num_components']} components in '{result['subcircuit_name']}'")
     
     # Also print a brief summary
     stats = result['statistics']
-    print(f"📈 Component types: {stats['component_types']}")
-    print(f"📏 Size ranges - Width: {stats['size_distribution']['width_range']}, Length: {stats['size_distribution']['length_range']}")
+    print(f"Component types: {stats['component_types']}")
+    print(f"Size ranges - Width: {stats['size_distribution']['width_range']}, Length: {stats['size_distribution']['length_range']}")

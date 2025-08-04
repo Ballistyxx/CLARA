@@ -109,9 +109,9 @@ def load_model(model_path: str):
     
     for path in possible_paths:
         if os.path.exists(path + '.zip'):
-            print(f"🔄 Loading model from {path}")
+            print(f"Loading model from {path}")
             model = PPO.load(path)
-            print("✅ Model loaded successfully!")
+            print("Model loaded successfully!")
             print(f"   Policy type: {type(model.policy).__name__}")
             print(f"   Observation space: {model.observation_space}")
             return model
@@ -267,7 +267,7 @@ def test_grid_transferability(model, circuit_manager, base_grid_size=20):
     model_obs_space = model.observation_space.spaces
     max_components = model_obs_space['component_graph'].shape[0]
     
-    print("\n🔄 Testing Grid Transferability with Real SPICE Circuits...")
+    print("\nTesting Grid Transferability with Real SPICE Circuits...")
     print("This demonstrates that models trained on one grid size work on any other grid size!")
     
     # Test different grid sizes
@@ -282,7 +282,7 @@ def test_grid_transferability(model, circuit_manager, base_grid_size=20):
     print(f"Testing {test_circuit_name} with {len(test_circuit.nodes)} components on different grid sizes...")
     
     for grid_size in grid_sizes:
-        print(f"\n📊 Grid size: {grid_size}×{grid_size}")
+        print(f"\nGrid size: {grid_size}×{grid_size}")
         
         # Create environment with different grid size
         env = AnalogLayoutEnv(grid_size=grid_size, max_components=max_components)
@@ -321,7 +321,7 @@ def test_grid_transferability(model, circuit_manager, base_grid_size=20):
         print(f"   Layout density: {density:.2f}")
     
     # Summary
-    print(f"\n📋 Grid Transferability Summary:")
+    print(f"\nGrid Transferability Summary:")
     print(f"Grid Size | Reward | Success | Placed | Density")
     print(f"-" * 50)
     
@@ -344,15 +344,15 @@ def test_grid_transferability(model, circuit_manager, base_grid_size=20):
     
     avg_transferability = sum(transferability_scores) / len(transferability_scores) if transferability_scores else 0
     
-    print(f"\n🎯 Transferability Score: {avg_transferability:.1%}")
+    print(f"\nTransferability Score: {avg_transferability:.1%}")
     if avg_transferability > 0.9:
-        print("   ✅ EXCELLENT - Model transfers perfectly across grid sizes!")
+        print("   EXCELLENT - Model transfers perfectly across grid sizes!")
     elif avg_transferability > 0.7:
-        print("   ✅ GOOD - Model transfers well with minor variations")
+        print("   GOOD - Model transfers well with minor variations")
     elif avg_transferability > 0.5:
-        print("   ⚠️  MODERATE - Some degradation on different grid sizes")
+        print("    MODERATE - Some degradation on different grid sizes")
     else:
-        print("   ❌ POOR - Significant performance loss on different grids")
+        print("   POOR - Significant performance loss on different grids")
     
     return results
 
@@ -450,19 +450,19 @@ def main():
     args = parser.parse_args()
     
     try:
-        print(f"🚀 CLARA Model with Real SPICE Circuits")
+        print(f"CLARA Model with Real SPICE Circuits")
         print(f"=" * 50)
         
         # Load model
         model = load_model(args.model)
         
         # Initialize SPICE circuit manager
-        print(f"📁 Loading SPICE circuits from {args.spice_dir}")
+        print(f"Loading SPICE circuits from {args.spice_dir}")
         circuit_manager = SpiceCircuitManager(args.spice_dir)
         
         # Print circuit statistics
         stats = circuit_manager.get_circuit_stats()
-        print(f"✅ Loaded {stats['total_circuits']} SPICE circuits for evaluation")
+        print(f"Loaded {stats['total_circuits']} SPICE circuits for evaluation")
         print(f"   Component range: {stats['component_range'][0]}-{stats['component_range'][1]}")
         print(f"   Available circuits: {', '.join(list(stats['circuit_names'])[:3])}...")
         
@@ -494,7 +494,7 @@ def main():
             # Handle large circuits by sampling
             actual_components = len(test_circuit.nodes)
             
-            print(f"\n🧪 Testing on {circuit_name} ({actual_components} components)")
+            print(f"\nTesting on {circuit_name} ({actual_components} components)")
             
             if actual_components > max_components:
                 print(f"   Model trained for {max_components} components, circuit has {actual_components}")
@@ -551,21 +551,21 @@ def main():
                 print(f"{result['name']} ({result['subcircuit']}): {result['reward']:.1f} reward, "
                       f"{result['steps']} steps, {components_info}")
         
-        print("\n✅ Model evaluation completed!")
-        print("\n💡 Tips:")
-        print("   • Use --circuit to test specific SPICE circuits")
-        print("   • Use --test-circuits to test all available circuits")
-        print("   • Use --sampling-strategy to control large circuit sampling (diverse/connected/random)")
-        print("   • Use --test-transferability to see grid-agnostic capabilities")
-        print("   • Use --visualize to see layout diagrams")
-        print("   • Large circuits are automatically sampled to fit model constraints!")
-        
+        print("\nModel evaluation completed!")
+        print("\nTips:")
+        print("   - Use --circuit to test specific SPICE circuits")
+        print("   - Use --test-circuits to test all available circuits")
+        print("   - Use --sampling-strategy to control large circuit sampling (diverse/connected/random)")
+        print("   - Use --test-transferability to see grid-agnostic capabilities")
+        print("   - Use --visualize to see layout diagrams")
+        print("   - Large circuits are automatically sampled to fit model constraints!")
+
     except FileNotFoundError as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         print("Make sure you've run training first: python3 train_spice_real.py")
         return 1
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         return 1

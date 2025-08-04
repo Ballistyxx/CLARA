@@ -11,7 +11,7 @@ from analog_layout_env import AnalogLayoutEnv
 
 def test_environment_basic():
     """Test basic environment functionality with new observation format."""
-    print("🧪 Testing grid-agnostic environment...")
+    print("Testing grid-agnostic environment...")
     
     try:
         # Create environment
@@ -24,7 +24,7 @@ def test_environment_basic():
         else:
             obs = result
         
-        print(f"✅ Environment reset successful")
+        print(f"Environment reset successful")
         print(f"   Observation keys: {list(obs.keys())}")
         
         # Check new observation format
@@ -36,14 +36,14 @@ def test_environment_basic():
         expected_shape = (env.max_components, 4)
         assert comp_list_shape == expected_shape, f"Wrong shape: {comp_list_shape} vs {expected_shape}"
         
-        print(f"✅ New observation format correct")
+        print(f"New observation format correct")
         print(f"   placed_components_list shape: {comp_list_shape}")
         
         # Check initial placement (first component should be placed)
         comp_list = obs["placed_components_list"]
         first_comp = comp_list[0]
         if first_comp[3] == 1.0:  # Valid flag
-            print(f"✅ First component placed: [{first_comp[0]:.2f}, {first_comp[1]:.2f}, {first_comp[2]:.2f}]")
+            print(f"First component placed: [{first_comp[0]:.2f}, {first_comp[1]:.2f}, {first_comp[2]:.2f}]")
         
         # Test a few steps
         total_reward = 0
@@ -70,11 +70,11 @@ def test_environment_basic():
             if done:
                 break
         
-        print(f"✅ Environment test completed. Total reward: {total_reward:.2f}")
+        print(f"Environment test completed. Total reward: {total_reward:.2f}")
         return True
         
     except Exception as e:
-        print(f"❌ Environment test failed: {e}")
+        print(f"Environment test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -82,7 +82,7 @@ def test_environment_basic():
 
 def test_grid_transferability():
     """Test that the same circuit works on different grid sizes."""
-    print("\n🧪 Testing grid transferability...")
+    print("\nTesting grid transferability...")
     
     try:
         # Create a small test circuit
@@ -124,7 +124,7 @@ def test_grid_transferability():
                     'actual_y': first_comp[1] * grid_size
                 }
         
-        print(f"✅ Grid transferability test passed")
+        print(f"Grid transferability test passed")
         for grid_size, data in results.items():
             print(f"   Grid {grid_size}: norm=({data['norm_x']:.3f}, {data['norm_y']:.3f}) "
                   f"actual=({data['actual_x']:.1f}, {data['actual_y']:.1f})")
@@ -132,7 +132,7 @@ def test_grid_transferability():
         return True
         
     except Exception as e:
-        print(f"❌ Grid transferability test failed: {e}")
+        print(f"Grid transferability test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -140,7 +140,7 @@ def test_grid_transferability():
 
 def test_memory_efficiency():
     """Test that memory usage is reduced for large grids."""
-    print("\n🧪 Testing memory efficiency...")
+    print("\nTesting memory efficiency...")
     
     try:
         import sys
@@ -163,7 +163,7 @@ def test_memory_efficiency():
         old_format_small = 16 * 16 * 8  # bytes (int8)
         old_format_large = 64 * 64 * 8  # bytes (int8)
         
-        print(f"✅ Memory efficiency test results:")
+        print(f"Memory efficiency test results:")
         print(f"   New format - 16x16: {comp_list_size_small} bytes")
         print(f"   New format - 64x64: {comp_list_size_large} bytes")
         print(f"   Old format - 16x16: {old_format_small} bytes")
@@ -181,13 +181,13 @@ def test_memory_efficiency():
         return True
         
     except Exception as e:
-        print(f"❌ Memory efficiency test failed: {e}")
+        print(f"Memory efficiency test failed: {e}")
         return False
 
 
 def main():
     """Run all tests."""
-    print("🚀 CLARA Grid-Agnostic Environment Test Suite")
+    print("CLARA Grid-Agnostic Environment Test Suite")
     print("=" * 50)
     
     tests = [
@@ -203,16 +203,16 @@ def main():
             result = test_func()
             results.append(result)
         except Exception as e:
-            print(f"❌ {test_name} crashed: {e}")
+            print(f"{test_name} crashed: {e}")
             results.append(False)
     
     # Summary
     print("\n" + "=" * 50)
-    print("🏁 Test Summary")
+    print("Test Summary")
     print("=" * 50)
     
     for i, (test_name, _) in enumerate(tests):
-        status = "✅ PASS" if results[i] else "❌ FAIL"
+        status = "PASS" if results[i] else "FAIL"
         print(f"{test_name}: {status}")
     
     passed = sum(results)
@@ -221,10 +221,10 @@ def main():
     print(f"\nOverall: {passed}/{total} tests passed")
     
     if passed == total:
-        print("🎉 All tests passed! Grid-agnostic environment is ready.")
+        print("All tests passed! Grid-agnostic environment is ready.")
         return 0
     else:
-        print("⚠️  Some tests failed. Please check the errors above.")
+        print(" Some tests failed. Please check the errors above.")
         return 1
 
 

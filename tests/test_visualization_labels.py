@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 def test_device_model_labels():
     """Test that visualization shows device models instead of generic labels."""
     
-    print("🎨 TESTING VISUALIZATION DEVICE MODEL LABELS")
+    print("TESTING VISUALIZATION DEVICE MODEL LABELS")
     print("=" * 50)
     
     # Create a test circuit with various device models
@@ -89,15 +89,15 @@ def test_device_model_labels():
         save_path="test_device_labels.png"
     )
     
-    print(f"\n✅ Visualization created and saved as 'test_device_labels.png'")
+    print(f"\nVisualization created and saved as 'test_device_labels.png'")
     print(f"   Expected labels (full device model names):")
-    print(f"   • sky130_fd_pr__pfet_g5v0d10v5 (instead of PMOS1)")
-    print(f"   • sky130_fd_pr__nfet_01v8 (instead of NMOS2)")  
-    print(f"   • sky130_fd_pr__res_xhigh_po_0p35 (instead of R3)")
-    print(f"   • sky130_fd_pr__cap_mim_m3_1 (instead of C4)")
-    print(f"   • sky130_fd_sc_hvl__inv_1 (instead of X5)")
+    print(f"   - sky130_fd_pr__pfet_g5v0d10v5 (instead of PMOS1)")
+    print(f"   - sky130_fd_pr__nfet_01v8 (instead of NMOS2)")  
+    print(f"   - sky130_fd_pr__res_xhigh_po_0p35 (instead of R3)")
+    print(f"   - sky130_fd_pr__cap_mim_m3_1 (instead of C4)")
+    print(f"   - sky130_fd_sc_hvl__inv_1 (instead of X5)")
     
-    print(f"\n🔍 Full device model names will be displayed directly on components")
+    print(f"\nFull device model names will be displayed directly on components")
     
     plt.show()
     

@@ -12,7 +12,7 @@ import networkx as nx
 
 def print_component_details(components):
     """Print detailed component information."""
-    print("\n📋 COMPONENT DETAILS")
+    print("\nCOMPONENT DETAILS")
     print("=" * 80)
     
     for i, comp in enumerate(components):
@@ -28,7 +28,7 @@ def print_component_details(components):
 
 def print_connectivity_info(circuit_graph):
     """Print circuit connectivity information."""
-    print("\n🔗 CONNECTIVITY INFORMATION")
+    print("\nCONNECTIVITY INFORMATION")
     print("=" * 80)
     
     if isinstance(circuit_graph, nx.Graph):
@@ -49,7 +49,7 @@ def print_connectivity_info(circuit_graph):
 
 def print_rl_compatibility_info(circuit_data):
     """Print information about RL compatibility."""
-    print("\n🤖 RL INTEGRATION COMPATIBILITY")
+    print("\nRL INTEGRATION COMPATIBILITY")
     print("=" * 80)
     
     # Check if data structure is suitable for RL
@@ -57,9 +57,9 @@ def print_rl_compatibility_info(circuit_data):
     missing_fields = [field for field in required_fields if field not in circuit_data]
     
     if missing_fields:
-        print(f"❌ Missing required fields: {missing_fields}")
+        print(f"Missing required fields: {missing_fields}")
     else:
-        print("✅ All required fields present")
+        print("All required fields present")
     
     # Check component attributes
     if circuit_data['components']:
@@ -68,9 +68,9 @@ def print_rl_compatibility_info(circuit_data):
         comp_missing = [field for field in rl_required if field not in sample_comp]
         
         if comp_missing:
-            print(f"❌ Components missing required fields: {comp_missing}")
+            print(f"Components missing required fields: {comp_missing}")
         else:
-            print("✅ Components have all required RL fields")
+            print("Components have all required RL fields")
     
     # Check connectivity matrix
     if 'connectivity_matrix' in circuit_data:
@@ -78,9 +78,9 @@ def print_rl_compatibility_info(circuit_data):
         n_components = len(circuit_data['components'])
         
         if len(matrix) == n_components and all(len(row) == n_components for row in matrix):
-            print("✅ Connectivity matrix dimensions are correct")
+            print("Connectivity matrix dimensions are correct")
         else:
-            print("❌ Connectivity matrix dimensions don't match component count")
+            print("Connectivity matrix dimensions don't match component count")
     
     print(f"\nData structure size: {n_components} components")
     print(f"Memory efficient: Component list format (not grid-based)")
@@ -89,13 +89,13 @@ def print_rl_compatibility_info(circuit_data):
 
 def test_single_file():
     """Test parsing a single SPICE file."""
-    print("🧪 TESTING SINGLE FILE PARSING")
+    print("TESTING SINGLE FILE PARSING")
     print("=" * 60)
     
     test_file = "/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits/INV_1.spice"
     
     if not Path(test_file).exists():
-        print(f"❌ Test file not found: {test_file}")
+        print(f"Test file not found: {test_file}")
         return
     
     parser = EnhancedSpiceParser()
@@ -103,13 +103,13 @@ def test_single_file():
     try:
         circuit_data = parser.parse_spice_file(test_file)
         
-        print(f"✅ Successfully parsed: {Path(test_file).name}")
-        print(f"📊 Circuit: {circuit_data['subcircuit_name']}")
-        print(f"📊 Components: {circuit_data['num_components']}")
+        print(f"Successfully parsed: {Path(test_file).name}")
+        print(f"Circuit: {circuit_data['subcircuit_name']}")
+        print(f"Components: {circuit_data['num_components']}")
         
         # Print statistics
         stats = circuit_data['statistics']
-        print(f"\n📈 STATISTICS:")
+        print(f"\nSTATISTICS:")
         print(f"  Component types: {stats['component_types']}")
         print(f"  Device models: {stats['device_models']}")
         print(f"  Size ranges: W={stats['size_distribution']['width_range']}, L={stats['size_distribution']['length_range']}")
@@ -126,7 +126,7 @@ def test_single_file():
         return circuit_data
         
     except Exception as e:
-        print(f"❌ Error parsing file: {e}")
+        print(f"Error parsing file: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -134,14 +134,14 @@ def test_single_file():
 
 def test_multiple_files():
     """Test parsing multiple SPICE files."""
-    print("\n\n🧪 TESTING MULTIPLE FILE PARSING")
+    print("\n\nTESTING MULTIPLE FILE PARSING")
     print("=" * 60)
     
     directory = "/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits"
     
     results = parse_multiple_spice_files(directory)
     
-    print(f"\n📊 PARSING RESULTS SUMMARY")
+    print(f"\nPARSING RESULTS SUMMARY")
     print("=" * 60)
     
     successful = 0
@@ -150,10 +150,10 @@ def test_multiple_files():
     
     for filename, data in results.items():
         if 'error' in data:
-            print(f"❌ {filename}: {data['error']}")
+            print(f"{filename}: {data['error']}")
             failed += 1
         else:
-            print(f"✅ {filename}: {data['num_components']} components ({data['subcircuit_name']})")
+            print(f"{filename}: {data['num_components']} components ({data['subcircuit_name']})")
             successful += 1
             total_components += data['num_components']
     
@@ -167,7 +167,7 @@ def test_multiple_files():
 
 def demonstrate_multiplier_handling():
     """Demonstrate how multiplier values are handled."""
-    print("\n\n🧪 TESTING MULTIPLIER HANDLING")
+    print("\n\nTESTING MULTIPLIER HANDLING")
     print("=" * 60)
     
     # Test with a file that has multiplier values
@@ -195,12 +195,12 @@ def demonstrate_multiplier_handling():
         print(f"  Individual components have unique names (e.g., XM1_m0, XM1_m1)")
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
 
 
 def export_for_rl_integration(circuit_data, output_file):
     """Export circuit data in format ready for RL integration."""
-    print(f"\n💾 EXPORTING FOR RL INTEGRATION")
+    print(f"\nEXPORTING FOR RL INTEGRATION")
     print("=" * 60)
     
     # Create RL-ready format
@@ -229,7 +229,7 @@ def export_for_rl_integration(circuit_data, output_file):
     with open(output_file, 'w') as f:
         json.dump(rl_data, f, indent=2)
     
-    print(f"✅ Exported RL-ready data to: {output_file}")
+    print(f"Exported RL-ready data to: {output_file}")
     print(f"   Format: JSON with normalized component attributes")
     print(f"   Components: {len(rl_data['components'])}")
     print(f"   Connectivity: {len(rl_data['adjacency_matrix'])}×{len(rl_data['adjacency_matrix'])} matrix")
@@ -239,7 +239,7 @@ def export_for_rl_integration(circuit_data, output_file):
 
 def main():
     """Main test function."""
-    print("🚀 ENHANCED SPICE PARSER TEST SUITE")
+    print("ENHANCED SPICE PARSER TEST SUITE")
     print("=" * 80)
     
     # Test single file parsing
@@ -256,16 +256,16 @@ def main():
     multi_results = test_multiple_files()
     
     print("\n" + "=" * 80)
-    print("🎉 TEST SUITE COMPLETED")
+    print("TEST SUITE COMPLETED")
     print("=" * 80)
     print("The enhanced SPICE parser successfully:")
-    print("✅ Parses individual SPICE files")
-    print("✅ Extracts L, W, device model, multiplier values")
-    print("✅ Handles multiplier expansion (m > 1 creates multiple components)")
-    print("✅ Creates RL-compatible data structures")
-    print("✅ Generates NetworkX graphs for connectivity")
-    print("✅ Provides comprehensive statistics")
-    print("✅ Exports JSON format ready for RL integration")
+    print("Parses individual SPICE files")
+    print("Extracts L, W, device model, multiplier values")
+    print("Handles multiplier expansion (m > 1 creates multiple components)")
+    print("Creates RL-compatible data structures")
+    print("Generates NetworkX graphs for connectivity")
+    print("Provides comprehensive statistics")
+    print("Exports JSON format ready for RL integration")
     
     return circuit_data, multi_results
 

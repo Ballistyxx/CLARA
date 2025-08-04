@@ -509,19 +509,19 @@ def main():
     spice_file = "/home/eli/Documents/Internship/CLARA/schematics/sky130_ef_ip__simple_por.spice"
     
     if not Path(spice_file).exists():
-        print(f"❌ SPICE file not found: {spice_file}")
+        print(f"SPICE file not found: {spice_file}")
         return
     
-    print("🔧 Parsing SPICE file...")
+    print("Parsing SPICE file...")
     try:
         circuit = parser.parse_spice_file(spice_file)
         
-        print(f"✅ Successfully parsed SPICE file!")
+        print(f"Successfully parsed SPICE file!")
         print(f"   Components: {len(circuit.nodes)}")
         print(f"   Connections: {len(circuit.edges)}")
         
         # Show component details
-        print("\n📋 Component Details:")
+        print("\nComponent Details:")
         for node_id in sorted(circuit.nodes()):
             attrs = circuit.nodes[node_id]
             comp_type = attrs.get('component_type', 0)
@@ -534,7 +534,7 @@ def main():
                   f"[{attrs.get('spice_name', 'N/A')}]{match_str}")
         
         # Show connections
-        print(f"\n🔗 Connections:")
+        print(f"\nConnections:")
         for edge in circuit.edges(data=True):
             net_info = f" (net: {edge[2].get('net', 'unknown')})" if len(edge) > 2 else ""
             print(f"  {edge[0]} ↔ {edge[1]}{net_info}")
@@ -542,10 +542,10 @@ def main():
         # Save to JSON
         output_file = "/home/eli/Documents/Internship/CLARA/data/circuits/spice_parsed_por.json"
         parser.save_circuit_to_json(circuit, output_file, source_spice=spice_file)
-        print(f"\n💾 Saved circuit to: {output_file}")
+        print(f"\nSaved circuit to: {output_file}")
         
         # Test compatibility with CLARA environment
-        print(f"\n🧪 Testing CLARA compatibility...")
+        print(f"\nTesting CLARA compatibility...")
         from analog_layout_env import AnalogLayoutEnv
         
         env = AnalogLayoutEnv(grid_size=15, max_components=len(circuit.nodes))
@@ -556,12 +556,12 @@ def main():
         else:
             obs = result
         
-        print(f"✅ Circuit loaded successfully in CLARA environment!")
+        print(f"Circuit loaded successfully in CLARA environment!")
         print(f"   Grid size: {env.grid_size}×{env.grid_size}")
         print(f"   Components to place: {env.num_components}")
         
     except Exception as e:
-        print(f"❌ Error parsing SPICE file: {e}")
+        print(f"Error parsing SPICE file: {e}")
         import traceback
         traceback.print_exc()
 

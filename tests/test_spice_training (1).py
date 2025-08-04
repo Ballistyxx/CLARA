@@ -28,7 +28,7 @@ def quick_test():
         'seed': 42
     }
     
-    print("🧪 QUICK TEST: SPICE Circuit Integration")
+    print("QUICK TEST: SPICE Circuit Integration")
     print("=" * 50)
     
     # Initialize SPICE circuit manager
@@ -36,7 +36,7 @@ def quick_test():
     circuit_manager = SpiceCircuitManager(spice_directory)
     
     stats = circuit_manager.get_circuit_stats()
-    print(f"✅ Loaded {stats['total_circuits']} circuits for testing")
+    print(f"Loaded {stats['total_circuits']} circuits for testing")
     
     # Create single environment for testing (not vectorized)
     test_env = AnalogLayoutSpiceEnvWrapper(
@@ -46,7 +46,7 @@ def quick_test():
     )
     
     # Test environment reset with SPICE circuit
-    print("🔬 Testing environment with real SPICE circuits...")
+    print("Testing environment with real SPICE circuits...")
     
     # Test a few resets to see different circuits
     for i in range(3):
@@ -73,10 +73,10 @@ def quick_test():
             if done:
                 break
     
-    print("✅ Environment testing successful!")
+    print("Environment testing successful!")
     
     # Quick training test
-    print("🚀 Quick training test (2K timesteps)...")
+    print("Quick training test (2K timesteps)...")
     
     # Create vectorized environment for training
     train_env = setup_spice_training_environment(config, circuit_manager)
@@ -93,14 +93,14 @@ def quick_test():
     
     model.learn(total_timesteps=config['total_timesteps'], progress_bar=False)
     
-    print("✅ Training test successful!")
+    print("Training test successful!")
     
     # Test model on specific circuit
-    print("🧪 Testing trained model on SPICE circuits...")
+    print("Testing trained model on SPICE circuits...")
     
     test_results = test_model_on_spice_circuits(model, circuit_manager, config)
     
-    print("🎉 All tests passed! SPICE integration is working perfectly.")
+    print("All tests passed! SPICE integration is working perfectly.")
     
     test_env.close()
     train_env.close()

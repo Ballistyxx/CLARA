@@ -1,0 +1,252 @@
+# Curriculum learning stages for analog layout training
+# Progressive increase in complexity with adaptive reward weights
+
+curriculum:
+  # Stage 1: Basic placement (3-6 components)
+  stage_1:
+    name: "basic_placement"
+    timesteps: 50000
+    max_components: 6
+    grid_size: 32
+    pmos_rows: 1
+    nmos_rows: 1  
+    mixed_rows: 1
+    
+    # Focus on completion and row discipline
+    reward_weights:
+      completion: 5.0
+      row_consistency: 3.0
+      symmetry: 1.0
+      pattern_validity: 0.5
+      abutment_alignment: 0.5
+      crossings: -0.5
+      congestion_variance: -0.2
+      perimeter_area_ratio: -0.2
+      overlap_penalty: -5.0
+      step_penalty: -0.01
+    
+    # Simplified action space (basic relations only)
+    enabled_relations:
+      - LEFT_OF
+      - RIGHT_OF
+      - ABOVE
+      - BELOW
+      - ADJACENT
+    
+    success_criteria:
+      min_completion: 0.8
+      min_row_consistency: 0.9
+      episodes_threshold: 50  # Episodes to maintain criteria
+  
+  # Stage 2: Symmetry and patterns (6-10 components)
+  stage_2:
+    name: "symmetry_patterns"
+    timesteps: 100000
+    max_components: 10
+    grid_size: 48
+    pmos_rows: 2
+    nmos_rows: 2
+    mixed_rows: 1
+    
+    # Emphasize symmetry and patterns
+    reward_weights:
+      completion: 4.0
+      row_consistency: 2.5
+      symmetry: 4.0
+      pattern_validity: 3.0
+      abutment_alignment: 1.0
+      rail_alignment: 0.5
+      crossings: -1.0
+      congestion_variance: -0.5
+      perimeter_area_ratio: -0.5
+      overlap_penalty: -5.0
+      step_penalty: -0.01
+    
+    # Add mirror relations
+    enabled_relations:
+      - LEFT_OF
+      - RIGHT_OF
+      - ABOVE
+      - BELOW
+      - ADJACENT
+      - MIRRORED_X
+      - MIRRORED_Y
+      - MIRROR_ABOUT
+    
+    success_criteria:
+      min_completion: 0.9
+      min_row_consistency: 0.95
+      min_symmetry_score: 0.7
+      episodes_threshold: 100
+  
+  # Stage 3: Advanced patterns (10-16 components)
+  stage_3:
+    name: "advanced_patterns"
+    timesteps: 150000
+    max_components: 16
+    grid_size: 64
+    pmos_rows: 3
+    nmos_rows: 3
+    mixed_rows: 2
+    
+    # Full reward structure
+    reward_weights:
+      completion: 4.0
+      row_consistency: 2.0
+      symmetry: 3.0
+      pattern_validity: 2.5
+      abutment_alignment: 1.5
+      rail_alignment: 1.0
+      crossings: -1.5
+      congestion_variance: -1.0
+      perimeter_area_ratio: -1.0
+      overlap_penalty: -5.0
+      step_penalty: -0.01
+    
+    # Full action space
+    enabled_relations:
+      - LEFT_OF
+      - RIGHT_OF
+      - ABOVE
+      - BELOW
+      - ADJACENT
+      - MIRRORED_X
+      - MIRRORED_Y
+      - MIRROR_ABOUT
+      - COMMON_CENTROID
+      - INTERDIGITATE
+    
+    success_criteria:
+      min_completion: 0.95
+      min_row_consistency: 0.95
+      min_symmetry_score: 0.85
+      min_pattern_validity: 0.8
+      episodes_threshold: 150
+  
+  # Stage 4: Large circuits (16-32 components)
+  stage_4:
+    name: "large_circuits"
+    timesteps: 200000
+    max_components: 32
+    grid_size: 80
+    pmos_rows: 4
+    nmos_rows: 4
+    mixed_rows: 3
+    
+    # Optimize for large-scale placement
+    reward_weights:
+      completion: 4.0
+      row_consistency: 2.0
+      symmetry: 3.0
+      pattern_validity: 2.0
+      abutment_alignment: 2.0
+      rail_alignment: 1.5
+      crossings: -2.0
+      congestion_variance: -1.5
+      perimeter_area_ratio: -1.5
+      overlap_penalty: -5.0
+      step_penalty: -0.005  # Reduce step penalty for longer episodes
+    
+    # Focus on efficiency for large circuits
+    enabled_relations:
+      - LEFT_OF
+      - RIGHT_OF
+      - ABOVE
+      - BELOW
+      - ADJACENT
+      - MIRRORED_X
+      - MIRRORED_Y
+      - MIRROR_ABOUT
+      - COMMON_CENTROID
+    
+    success_criteria:
+      min_completion: 1.0
+      min_row_consistency: 0.95
+      min_symmetry_score: 0.9
+      min_pattern_validity: 0.9
+      max_crossings_per_component: 1.5
+      episodes_threshold: 200
+
+# Curriculum progression settings
+progression:
+  # Automatic advancement criteria
+  auto_advance: true
+  
+  # Check advancement every N episodes
+  check_interval: 1000
+  
+  # Require success for this many consecutive checks
+  stability_checks: 3
+  
+  # Allow manual override
+  manual_override: true
+  
+  # Evaluation settings
+  evaluation:
+    episodes_per_check: 50
+    eval_circuits: 10
+    use_deterministic_policy: true
+
+# Per-stage training settings
+training_settings:
+  # PPO hyperparameters that change by stage
+  stage_1:
+    learning_rate: 3e-4
+    n_steps: 2048
+    batch_size: 128
+    ent_coef: 0.01
+    clip_range: 0.2
+    
+  stage_2:
+    learning_rate: 2e-4
+    n_steps: 4096
+    batch_size: 256
+    ent_coef: 0.008
+    clip_range: 0.2
+    
+  stage_3:
+    learning_rate: 1e-4
+    n_steps: 4096
+    batch_size: 256
+    ent_coef: 0.005
+    clip_range: 0.15
+    
+  stage_4:
+    learning_rate: 5e-5
+    n_steps: 8192
+    batch_size: 512
+    ent_coef: 0.003
+    clip_range: 0.1
+
+# Circuit generation for each stage
+circuit_generation:
+  stage_1:
+    circuit_types:
+      - differential_pair
+      - current_mirror
+      - simple_amplifier
+    complexity_range: [3, 6]
+    
+  stage_2:
+    circuit_types:
+      - differential_pair
+      - current_mirror
+      - common_source
+      - cascode
+    complexity_range: [6, 10]
+    
+  stage_3:
+    circuit_types:
+      - ota
+      - bandgap
+      - voltage_reference
+      - bias_circuit
+    complexity_range: [10, 16]
+    
+  stage_4:
+    circuit_types:
+      - full_ota
+      - pll_components
+      - data_converter_blocks
+      - power_management
+    complexity_range: [16, 32]

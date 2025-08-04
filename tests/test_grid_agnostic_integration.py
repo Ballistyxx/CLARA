@@ -13,7 +13,7 @@ from analog_layout_env import AnalogLayoutEnv
 
 def test_basic_integration():
     """Test basic integration with PPO and new observation format."""
-    print("🧪 Testing basic integration with PPO...")
+    print("Testing basic integration with PPO...")
     
     try:
         # Create environment
@@ -33,20 +33,20 @@ def test_basic_integration():
             verbose=0
         )
         
-        print(f"✅ PPO model created successfully")
+        print(f"PPO model created successfully")
         print(f"   Policy type: {type(model.policy).__name__}")
         
         # Test a few training steps
         print("   Testing training steps...")
         model.learn(total_timesteps=256, progress_bar=False)
         
-        print(f"✅ Basic integration test passed")
+        print(f"Basic integration test passed")
         
         env.close()
         return True
         
     except Exception as e:
-        print(f"❌ Basic integration test failed: {e}")
+        print(f"Basic integration test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -54,7 +54,7 @@ def test_basic_integration():
 
 def test_grid_transferability():
     """Test that models trained on small grids work on large grids."""
-    print("\n🧪 Testing grid transferability...")
+    print("\nTesting grid transferability...")
     
     try:
         # Train on small grid
@@ -110,7 +110,7 @@ def test_grid_transferability():
             if done:
                 obs = huge_env.reset()
         
-        print(f"✅ Grid transferability test passed")
+        print(f"Grid transferability test passed")
         print(f"   Model trained on 16x16 successfully runs on 32x32 and 64x64")
         
         small_env.close()
@@ -120,7 +120,7 @@ def test_grid_transferability():
         return True
         
     except Exception as e:
-        print(f"❌ Grid transferability test failed: {e}")
+        print(f"Grid transferability test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -128,7 +128,7 @@ def test_grid_transferability():
 
 def test_memory_comparison():
     """Compare memory usage between old and new approaches."""
-    print("\n🧪 Testing memory usage comparison...")
+    print("\nTesting memory usage comparison...")
     
     try:
         import psutil
@@ -166,7 +166,7 @@ def test_memory_comparison():
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
         memory_used = final_memory - initial_memory
         
-        print(f"✅ Memory usage test completed")
+        print(f"Memory usage test completed")
         print(f"   Memory used: {memory_used:.1f} MB")
         print(f"   Grid size: 64x64")
         print(f"   Components: 10")
@@ -193,13 +193,13 @@ def test_memory_comparison():
         print("   psutil not available, skipping detailed memory test")
         return True
     except Exception as e:
-        print(f"❌ Memory usage test failed: {e}")
+        print(f"Memory usage test failed: {e}")
         return False
 
 
 def test_training_speed():
     """Test training speed with new approach."""
-    print("\n🧪 Testing training speed...")
+    print("\nTesting training speed...")
     
     try:
         import time
@@ -231,12 +231,12 @@ def test_training_speed():
             
             env.close()
         
-        print(f"✅ Training speed test completed")
+        print(f"Training speed test completed")
         
         return True
         
     except Exception as e:
-        print(f"❌ Training speed test failed: {e}")
+        print(f"Training speed test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -244,7 +244,7 @@ def test_training_speed():
 
 def main():
     """Run all integration tests."""
-    print("🚀 CLARA Grid-Agnostic Integration Test Suite")
+    print("CLARA Grid-Agnostic Integration Test Suite")
     print("=" * 50)
     
     tests = [
@@ -261,16 +261,16 @@ def main():
             result = test_func()
             results.append(result)
         except Exception as e:
-            print(f"❌ {test_name} crashed: {e}")
+            print(f"{test_name} crashed: {e}")
             results.append(False)
     
     # Summary
     print("\n" + "=" * 50)
-    print("🏁 Test Summary")
+    print("Test Summary")
     print("=" * 50)
     
     for i, (test_name, _) in enumerate(tests):
-        status = "✅ PASS" if results[i] else "❌ FAIL"
+        status = "PASS" if results[i] else "FAIL"
         print(f"{test_name}: {status}")
     
     passed = sum(results)
@@ -279,15 +279,15 @@ def main():
     print(f"\nOverall: {passed}/{total} tests passed")
     
     if passed == total:
-        print("🎉 All tests passed! Grid-agnostic CLARA is ready.")
+        print("All tests passed! Grid-agnostic CLARA is ready.")
         print("\nBenefits achieved:")
-        print("• ✅ Grid transferability - models work across any grid size")
-        print("• ✅ Memory efficiency - ~99% reduction for large grids")
-        print("• ✅ Training compatibility - works with standard PPO")
-        print("• ✅ Performance maintained - no speed degradation")
+        print("- Grid transferability - models work across any grid size")
+        print("- Memory efficiency - ~99% reduction for large grids")
+        print("- Training compatibility - works with standard PPO")
+        print("- Performance maintained - no speed degradation")
         return 0
     else:
-        print("⚠️  Some tests failed. Please check the errors above.")
+        print(" Some tests failed. Please check the errors above.")
         return 1
 
 

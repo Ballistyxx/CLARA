@@ -1,0 +1,47 @@
+# Default reward weights for analog layout training
+# These weights balance different objectives for analog-friendly placement
+
+reward_weights:
+  # Primary objectives
+  completion: 3.0           # Strong incentive to place all components
+  row_consistency: 2.0      # Enforce PMOS/NMOS row discipline
+  symmetry: 3.0            # Reward matched component symmetry
+  pattern_validity: 2.0     # Preserve locked groups (mirrors, common-centroid)
+  
+  # Layout quality
+  abutment_alignment: 1.5   # Reward device abutment and alignment
+  rail_alignment: 1.0       # Reward source/drain proximity to power rails
+  
+  # Penalties (negative weights)
+  crossings: -1.5          # Penalize net crossings
+  congestion_variance: -1.0 # Penalize non-uniform routing density
+  perimeter_area_ratio: -1.0 # Penalize non-rectangular layouts
+  overlap_penalty: -5.0     # Strong penalty for overlaps
+  step_penalty: -0.01      # Small penalty per step
+  
+  # Violation penalties
+  row_violation: -1.0       # Penalty for wrong row placement
+  spacing_violation: -1.0   # Penalty for min spacing violations
+  boundary_violation: -1.0  # Penalty for out-of-bounds placement
+
+# Normalization factors for metrics
+normalization:
+  max_crossings: 50         # Expected max crossings for normalization
+  max_congestion: 10.0      # Expected max congestion variance
+  max_perimeter_ratio: 3.0  # Expected max perimeter/area ratio
+  max_distance: 100.0       # Expected max connection distance
+
+# Early stopping criteria
+early_stopping:
+  completion_threshold: 0.95    # Stop if completion rate consistently high
+  patience: 100                 # Episodes to wait before stopping
+  min_improvement: 0.01         # Minimum improvement to reset patience
+
+# Evaluation criteria
+acceptance_criteria:
+  min_completion: 1.0           # Must place all components
+  min_row_consistency: 0.95     # 95% in correct rows
+  min_symmetry_score: 0.90      # 90% symmetric pairs
+  min_pattern_validity: 0.90    # 90% pattern preservation
+  max_violations: 0             # No violations allowed
+  max_crossings_per_component: 2.0  # Max crossings per component

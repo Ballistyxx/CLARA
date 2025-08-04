@@ -47,7 +47,7 @@ M1 drain gate source bulk nmos W=1 L=0.5
         temp_file = f.name
 
     try:
-        print("🧪 TESTING ENHANCED SPICE PARSER")
+        print("TESTING ENHANCED SPICE PARSER")
         print("=" * 50)
         
         # Parse the test file
@@ -79,7 +79,7 @@ M1 drain gate source bulk nmos W=1 L=0.5
             print(f"  {model}: {count}")
         
         # Test specific expectations
-        print(f"\n🔍 VALIDATION TESTS:")
+        print(f"\nVALIDATION TESTS:")
         
         # Should find all X-components
         component_names = [comp['name'] for comp in result['components']]
@@ -104,7 +104,7 @@ M1 drain gate source bulk nmos W=1 L=0.5
         found_non_x = [name for name in component_names if any(non_x in name for non_x in non_x_names)]
         print(f"Non-X components incorrectly found: {len(found_non_x)} (should be 0)")
         
-        print("\n✅ Enhanced parser test completed!")
+        print("\nEnhanced parser test completed!")
         
         return result
         

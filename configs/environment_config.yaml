@@ -1,0 +1,199 @@
+# Environment configuration for analog layout
+# Controls grid setup, action space, and environment behavior
+
+environment:
+  # Grid configuration
+  grid:
+    default_size: 64
+    min_size: 16
+    max_size: 128
+    adaptive_sizing: true  # Adjust grid size based on circuit complexity
+    
+  # Row partitioning
+  rows:
+    pmos_rows: 3
+    nmos_rows: 3
+    mixed_rows: 2
+    min_row_height: 4      # Minimum height per row
+    adaptive_rows: true    # Allow adaptive row counts
+    
+  # Action space configuration
+  action_space:
+    max_components: 32
+    max_groups: 10
+    enable_regions: true   # Enable coarse region selection
+    enable_masking: true   # Enable invalid action masking
+    
+    # Spatial relations (can be subset based on curriculum)
+    spatial_relations:
+      basic:
+        - LEFT_OF
+        - RIGHT_OF
+        - ABOVE
+        - BELOW
+        - ADJACENT
+      
+      mirror:
+        - MIRRORED_X
+        - MIRRORED_Y
+        - MIRROR_ABOUT
+      
+      advanced:
+        - COMMON_CENTROID
+        - INTERDIGITATE
+    
+    # Orientation options
+    orientations: [0, 90, 180, 270]
+    
+    # Coarse regions
+    regions: 4  # Quadrants
+  
+  # Observation space
+  observation:
+    # Component graph
+    max_components: 32
+    adjacency_matrix: true
+    
+    # Component features (per component)
+    component_features: 8
+    feature_names:
+      - component_type
+      - width
+      - height  
+      - matched_component
+      - placed_status
+      - device_model_hash
+      - length_param
+      - width_param
+    
+    # Spatial state
+    placement_grid: true
+    row_constraints: true
+    locked_groups: true
+    
+    # Normalization
+    normalize_features: true
+    feature_scaling: "minmax"  # "minmax", "standard", "robust"
+
+# Constraint checking
+constraints:
+  # Row discipline
+  enforce_row_discipline: true
+  allow_mixed_components: false  # Allow some components in any row
+  
+  # Spacing constraints
+  min_spacing: 1
+  enforce_min_spacing: true
+  
+  # Boundary constraints
+  enforce_boundaries: true
+  allow_partial_overflow: false
+  
+  # Pattern constraints
+  enforce_pattern_locks: true
+  pattern_tolerance: 1.5  # Tolerance for pattern matching
+  
+  # Overlap prevention
+  allow_overlaps: false
+  overlap_penalty: 5.0
+
+# Episode settings
+episode:
+  max_steps_multiplier: 3  # max_steps = max_components × multiplier
+  early_termination: true
+  termination_conditions:
+    - all_components_placed
+    - max_steps_reached
+    - invalid_action_limit  # Terminate after too many invalid actions
+  
+  invalid_action_limit: 20
+  invalid_action_penalty: 0.1
+
+# Environment dynamics
+dynamics:
+  # Stochasticity
+  placement_noise: 0.0     # Add noise to placement positions
+  action_noise: 0.0        # Add noise to actions
+  
+  # Partial observability
+  partial_observability: false
+  observation_noise: 0.0
+  
+  # Dynamic constraints
+  adaptive_constraints: false
+  constraint_relaxation: false
+
+# Integration settings
+integration:
+  # Legalizer
+  use_legalizer: false     # Apply legalizer after each step
+  legalizer_mode: "preserve_patterns"
+  
+  # Metrics calculation
+  calculate_metrics: true
+  metrics_frequency: "episode_end"  # "step", "episode_end", "never"
+  
+  # Visualization
+  auto_visualize: false
+  visualization_frequency: 100  # Episodes between visualizations
+  
+  # Logging
+  log_level: "INFO"
+  log_placements: false
+  log_actions: false
+  log_rewards: true
+  log_metrics: true
+
+# Circuit loading
+circuits:
+  # Source types
+  source_types:
+    - "generated"    # Procedurally generated
+    - "spice"       # From SPICE netlists
+    - "json"        # From JSON files
+  
+  # Default source
+  default_source: "generated"
+  
+  # Generated circuits
+  generated:
+    circuit_types:
+      - differential_pair
+      - current_mirror
+      - common_source
+      - ota
+      - bandgap
+    
+    complexity_range: [3, 16]
+    matching_probability: 0.3  # Probability of component matching
+    
+  # SPICE circuits
+  spice:
+    netlist_directory: "data/netlists"
+    parser_config:
+      extract_all_components: true
+      handle_multipliers: true
+      process_clara_overrides: true
+    
+  # JSON circuits
+  json:
+    circuit_directory: "data/circuits"
+    schema_validation: true
+
+# Performance optimization
+performance:
+  # Vectorization
+  vectorized_environments: true
+  n_envs: 4
+  
+  # Caching
+  cache_observations: false
+  cache_action_masks: true
+  
+  # Memory management
+  clear_cache_frequency: 1000
+  max_memory_usage: "2GB"
+  
+  # Parallel processing
+  parallel_metrics: false
+  n_workers: 1

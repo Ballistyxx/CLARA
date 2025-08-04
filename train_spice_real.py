@@ -33,10 +33,12 @@ class SpiceCircuitManager:
         self.circuits = {}
         self.suitable_circuits = {}
         self.load_circuits()
+
+        
     
     def load_circuits(self):
         """Load and parse all SPICE circuits."""
-        print(f"🔍 Loading SPICE circuits from {self.spice_directory}")
+        print(f"Loading SPICE circuits from {self.spice_directory}")
         
         # Parse all SPICE files
         results = parse_multiple_spice_files(self.spice_directory)
@@ -49,13 +51,13 @@ class SpiceCircuitManager:
                 # Only use circuits with reasonable size for RL training
                 if 3 <= data['num_components'] <= 2000:
                     self.suitable_circuits[filename] = data
-                    print(f"✅ {filename}: {data['num_components']} components ({data['subcircuit_name']})")
+                    print(f"{filename}: {data['num_components']} components ({data['subcircuit_name']})")
                 else:
-                    print(f"⚠️  {filename}: {data['num_components']} components (skipped - too large/small)")
+                    print(f"{filename}: {data['num_components']} components (skipped - too large/small)")
             else:
-                print(f"❌ {filename}: Parse error")
+                print(f"{filename}: Parse error")
         
-        print(f"📊 Loaded {len(self.circuits)} total circuits, {len(self.suitable_circuits)} suitable for training")
+        print(f"Loaded {len(self.circuits)} total circuits, {len(self.suitable_circuits)} suitable for training")
         
         if len(self.suitable_circuits) == 0:
             raise ValueError("No suitable circuits found for training!")
@@ -79,9 +81,14 @@ class SpiceCircuitManager:
             # Map SPICE component types to CLARA types
             clara_type = comp['type_value']  # Already mapped: NMOS=0, PMOS=1, etc.
             
-            # Use component dimensions from SPICE (W and L)
-            width = max(1, int(comp['width']))
-            height = max(1, int(comp['length']))
+            # Use normalized component dimensions to prevent grid overflow
+            # Apply square root scaling to reduce extreme sizes
+            raw_width = max(0.1, comp['width'])
+            raw_length = max(0.1, comp['length'])
+            
+            # Square root scaling with reasonable bounds
+            width = max(1, min(8, int(np.sqrt(raw_width) + 0.5)))
+            height = max(1, min(8, int(np.sqrt(raw_length) + 0.5)))
             
             # Find matched components for symmetry
             matched_component = self._find_matched_component(comp, components, i)
@@ -145,6 +152,9 @@ class AnalogLayoutSpiceEnvWrapper(AnalogLayoutEnv):
         self.reward_calculator = AdaptiveRewardCalculator()
         self.episode_count = 0
         self.current_circuit_name = "unknown"
+        # Enable action masking by default for SPICE circuits
+        if 'enable_action_masking' not in kwargs:
+            kwargs['enable_action_masking'] = True
         super().__init__(*args, **kwargs)
     
     def reset(self, **kwargs):
@@ -293,7 +303,7 @@ def main():
         'seed': 42
     }
     
-    print("🚀 CLARA Training with Real SPICE Circuits")
+    print("CLARA Training with Real SPICE Circuits")
     print("=" * 60)
     
     # Set random seeds
@@ -306,7 +316,7 @@ def main():
     
     # Print circuit statistics
     stats = circuit_manager.get_circuit_stats()
-    print(f"\n📊 SPICE Circuit Training Data:")
+    print(f"\nSPICE Circuit Training Data:")
     print(f"   Total circuits: {stats['total_circuits']}")
     print(f"   Component range: {stats['component_range'][0]}-{stats['component_range'][1]}")
     print(f"   Average components: {stats['avg_components']:.1f}")
@@ -323,14 +333,14 @@ def main():
         )
     
     # Create training environment with SPICE circuits
-    print(f"\n🏗️  Setting up training environment...")
+    print(f"\nSetting up training environment...")
     env = setup_spice_training_environment(config, circuit_manager)
     
     # Create evaluation environment
     eval_env = setup_spice_training_environment({**config, 'n_envs': 1}, circuit_manager)
     
     # Initialize PPO
-    print(f"🧠 Initializing PPO model...")
+    print(f"Initializing PPO model...")
     model = PPO(
         "MultiInputPolicy",  # Use standard policy compatible with grid-agnostic format
         env,
@@ -384,7 +394,7 @@ def main():
     )
     callbacks.append(eval_callback)
     
-    print(f"\n🎯 Starting training...")
+    print(f"\nStarting training...")
     print(f"   Total timesteps: {config['total_timesteps']:,}")
     print(f"   Log directory: {log_dir}")
     print(f"   Using real circuits from: {len(stats['circuit_names'])} SPICE files")
@@ -401,23 +411,23 @@ def main():
         final_model_path = f"{log_dir}/clara_spice_final_model"
         model.save(final_model_path)
         
-        print(f"\n🎉 Training completed successfully!")
+        print(f"\nTraining completed successfully!")
         print(f"   Final model saved: {final_model_path}.zip")
         print(f"   Training logs: {log_dir}")
         
         # Test the trained model
-        print(f"\n🧪 Testing trained model...")
+        print(f"\nTesting trained model...")
         test_model_on_spice_circuits(model, circuit_manager, config)
         
     except KeyboardInterrupt:
-        print(f"\n⚠️  Training interrupted by user")
+        print(f"\nTraining interrupted by user")
         # Save current model
         interrupted_model_path = f"{log_dir}/clara_spice_interrupted_model"
         model.save(interrupted_model_path)
         print(f"   Model saved: {interrupted_model_path}.zip")
     
     except Exception as e:
-        print(f"\n❌ Training failed: {e}")
+        print(f"\nTraining failed: {e}")
         import traceback
         traceback.print_exc()
     
@@ -495,7 +505,7 @@ def test_model_on_spice_circuits(model, circuit_manager: SpiceCircuitManager, co
     avg_success = np.mean([r['success_rate'] for r in results.values()])
     avg_reward = np.mean([r['avg_reward'] for r in results.values()])
     
-    print(f"\n📊 Overall Test Results:")
+    print(f"\nOverall Test Results:")
     print(f"   Average success rate: {avg_success:.1%}")
     print(f"   Average reward: {avg_reward:.2f}")
     

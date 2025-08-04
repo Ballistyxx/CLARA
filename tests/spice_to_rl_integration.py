@@ -23,7 +23,7 @@ class SpiceCircuitIntegrator:
     
     def load_spice_circuits(self, directory: str):
         """Load and parse all SPICE circuits from directory."""
-        print(f"🔍 Loading SPICE circuits from {directory}")
+        print(f"Loading SPICE circuits from {directory}")
         
         results = parse_multiple_spice_files(directory)
         
@@ -31,13 +31,13 @@ class SpiceCircuitIntegrator:
         for filename, data in results.items():
             if 'error' not in data and 2 <= data['num_components'] <= 2000:
                 self.parsed_circuits[filename] = data
-                print(f"✅ Loaded {filename}: {data['num_components']} components")
+                print(f"Loaded {filename}: {data['num_components']} components")
             elif 'error' not in data:
-                print(f"⚠️  Skipped {filename}: {data['num_components']} components (too large/small for RL)")
+                print(f" Skipped {filename}: {data['num_components']} components (too large/small for RL)")
             else:
-                print(f"❌ Failed {filename}: {data['error']}")
+                print(f"Failed {filename}: {data['error']}")
         
-        print(f"📊 Total circuits ready for RL: {len(self.parsed_circuits)}")
+        print(f"Total circuits ready for RL: {len(self.parsed_circuits)}")
         return self.parsed_circuits
     
     def convert_to_networkx_graph(self, circuit_data: dict) -> nx.Graph:
@@ -96,7 +96,7 @@ class SpiceCircuitIntegrator:
         # Convert to NetworkX graph
         circuit_graph = self.convert_to_networkx_graph(circuit_data)
         
-        print(f"🔬 Created environment for {circuit_name}")
+        print(f"Created environment for {circuit_name}")
         print(f"   Components: {circuit_graph.number_of_nodes()}")
         print(f"   Connections: {circuit_graph.number_of_edges()}")
         print(f"   Grid size: {grid_size}×{grid_size}")
@@ -111,14 +111,14 @@ class SpiceCircuitIntegrator:
     
     def train_on_spice_circuits(self, output_dir: str = "./logs/spice_circuits"):
         """Train CLARA on multiple SPICE circuits."""
-        print("🚀 Training CLARA on SPICE circuits")
+        print("Training CLARA on SPICE circuits")
         
         Path(output_dir).mkdir(parents=True, exist_ok=True)
         
         results = {}
         
         for circuit_name, circuit_data in self.parsed_circuits.items():
-            print(f"\n📋 Training on {circuit_name}")
+            print(f"\nTraining on {circuit_name}")
             
             try:
                 # Skip circuits that are too large
@@ -170,19 +170,19 @@ class SpiceCircuitIntegrator:
                     'success': True
                 }
                 
-                print(f"   ✅ Training completed! Average reward: {test_reward:.2f}")
+                print(f"   Training completed! Average reward: {test_reward:.2f}")
                 
                 env.close()
                 
             except Exception as e:
-                print(f"   ❌ Training failed: {e}")
+                print(f"   Training failed: {e}")
                 results[circuit_name] = {'success': False, 'error': str(e)}
         
         # Save training results
         with open(f"{output_dir}/training_results.json", 'w') as f:
             json.dump(results, f, indent=2)
         
-        print(f"\n🎉 Training completed! Results saved to {output_dir}")
+        print(f"\nTraining completed! Results saved to {output_dir}")
         return results
     
     def _test_model(self, model, make_env, circuit_graph, num_episodes=3):
@@ -218,7 +218,7 @@ class SpiceCircuitIntegrator:
     
     def analyze_circuits(self):
         """Analyze the parsed circuits for RL suitability."""
-        print("\n📊 CIRCUIT ANALYSIS FOR RL TRAINING")
+        print("\nCIRCUIT ANALYSIS FOR RL TRAINING")
         print("=" * 60)
         
         if not self.parsed_circuits:
@@ -254,14 +254,14 @@ class SpiceCircuitIntegrator:
         suitable_circuits = [name for name, data in self.parsed_circuits.items() 
                            if 3 <= data['num_components'] <= 8]
         
-        print(f"\n🎯 RL TRAINING RECOMMENDATIONS:")
+        print(f"\nRL TRAINING RECOMMENDATIONS:")
         print(f"  Suitable circuits (3-8 components): {len(suitable_circuits)}")
         print(f"  Recommended for training: {suitable_circuits[:5]}")  # Top 5
 
 
 def main():
     """Main demonstration function."""
-    print("🚀 SPICE TO RL INTEGRATION DEMONSTRATION")
+    print("SPICE TO RL INTEGRATION DEMONSTRATION")
     print("=" * 70)
     
     # Initialize integrator
@@ -276,7 +276,7 @@ def main():
     integrator.analyze_circuits()
     
     # Demonstrate single circuit integration
-    print(f"\n🧪 DEMONSTRATING SINGLE CIRCUIT INTEGRATION")
+    print(f"\nDEMONSTRATING SINGLE CIRCUIT INTEGRATION")
     print("=" * 60)
     
     if circuits:
@@ -298,7 +298,7 @@ def main():
             result = env.reset(circuit_graph=circuit_graph)
             obs = result[0] if isinstance(result, tuple) else result
             
-            print(f"✅ Environment created successfully!")
+            print(f"Environment created successfully!")
             print(f"   Observation keys: {list(obs.keys())}")
             print(f"   Circuit nodes: {circuit_graph.number_of_nodes()}")
             print(f"   Circuit edges: {circuit_graph.number_of_edges()}")
@@ -321,15 +321,15 @@ def main():
             
             env.close()
             
-            print(f"🎯 Ready for RL training with: {suitable_circuit}")
+            print(f"Ready for RL training with: {suitable_circuit}")
     
-    print(f"\n✅ SPICE-to-RL integration is working perfectly!")
+    print(f"\nSPICE-to-RL integration is working perfectly!")
     print(f"Key achievements:")
-    print(f"✅ Successfully parsed {len(circuits)} SPICE circuits")
-    print(f"✅ Extracted L, W, device models, and handled multipliers")
-    print(f"✅ Created RL-compatible data structures")
-    print(f"✅ Integrated with existing CLARA training pipeline")
-    print(f"✅ Ready for training on real analog circuits!")
+    print(f"Successfully parsed {len(circuits)} SPICE circuits")
+    print(f"Extracted L, W, device models, and handled multipliers")
+    print(f"Created RL-compatible data structures")
+    print(f"Integrated with existing CLARA training pipeline")
+    print(f"Ready for training on real analog circuits!")
 
 
 if __name__ == "__main__":

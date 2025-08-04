@@ -38,7 +38,7 @@ def create_test_circuit():
 
 def train_on_small_grid():
     """Train a model on a small 16x16 grid."""
-    print("🎯 Training model on 16x16 grid...")
+    print("Training model on 16x16 grid...")
     
     def make_env():
         return AnalogLayoutEnv(grid_size=16, max_components=8)
@@ -63,7 +63,7 @@ def train_on_small_grid():
     model.learn(total_timesteps=5000, progress_bar=False)
     training_time = time.time() - start_time
     
-    print(f"✅ Training completed in {training_time:.1f}s")
+    print(f"Training completed in {training_time:.1f}s")
     
     env.close()
     return model
@@ -71,7 +71,7 @@ def train_on_small_grid():
 
 def evaluate_on_grid_size(model, grid_size, n_episodes=10):
     """Evaluate model performance on a specific grid size."""
-    print(f"📊 Evaluating on {grid_size}x{grid_size} grid...")
+    print(f"Evaluating on {grid_size}x{grid_size} grid...")
     
     test_circuit = create_test_circuit()
     
@@ -133,14 +133,14 @@ def evaluate_on_grid_size(model, grid_size, n_episodes=10):
 
 def demonstrate_transferability():
     """Full demonstration of grid transferability."""
-    print("🚀 CLARA Grid Transferability Demonstration")
+    print("CLARA Grid Transferability Demonstration")
     print("=" * 60)
     
     # Train model on small grid
     model = train_on_small_grid()
     
     print("\n" + "=" * 60)
-    print("📈 Testing Transferability Across Grid Sizes")
+    print("Testing Transferability Across Grid Sizes")
     print("=" * 60)
     
     # Test on progressively larger grids
@@ -154,7 +154,7 @@ def demonstrate_transferability():
     
     # Summary
     print("=" * 60)
-    print("📋 Transferability Summary")
+    print("Transferability Summary")
     print("=" * 60)
     
     print("Grid Size | Avg Reward | Success Rate | Memory Savings")
@@ -175,7 +175,7 @@ def demonstrate_transferability():
     # Check transferability quality
     base_performance = results[0]['avg_success_rate']  # Performance on training grid
     
-    print(f"\n🎯 Transferability Analysis:")
+    print(f"\nTransferability Analysis:")
     print(f"   Training grid (16x16) success rate: {base_performance:.1%}")
     
     transferability_scores = []
@@ -188,21 +188,21 @@ def demonstrate_transferability():
     avg_transferability = np.mean(transferability_scores)
     min_transferability = min(transferability_scores)
     
-    print(f"\n📊 Overall Transferability Metrics:")
+    print(f"\nOverall Transferability Metrics:")
     print(f"   Average relative performance: {avg_transferability:.1%}")
     print(f"   Minimum relative performance: {min_transferability:.1%}")
     
     if avg_transferability > 0.8:
-        print("   ✅ EXCELLENT transferability achieved!")
+        print("   EXCELLENT transferability achieved!")
     elif avg_transferability > 0.6:
-        print("   ✅ GOOD transferability achieved!")
+        print("   GOOD transferability achieved!")
     elif avg_transferability > 0.4:
-        print("   ⚠️  MODERATE transferability achieved")
+        print("    MODERATE transferability achieved")
     else:
-        print("   ❌ POOR transferability - further optimization needed")
+        print("   POOR transferability - further optimization needed")
     
     # Memory efficiency summary
-    print(f"\n💾 Memory Efficiency Summary:")
+    print(f"\nMemory Efficiency Summary:")
     largest_grid = max(grid_sizes)
     old_memory = largest_grid * largest_grid * 8
     new_memory = 8 * 4 * 4
@@ -222,19 +222,19 @@ def main():
         results = demonstrate_transferability()
         
         print("\n" + "=" * 60)
-        print("🎉 CLARA Grid-Agnostic Conversion COMPLETE!")
+        print("CLARA Grid-Agnostic Conversion COMPLETE!")
         print("=" * 60)
-        print("✅ Successfully achieved:")
-        print("   • Grid-agnostic training and inference")
-        print("   • ~99% memory reduction for large grids")
-        print("   • Maintained performance across grid sizes")
-        print("   • No retraining required for different grids")
-        print("   • Linear memory scaling instead of quadratic")
+        print("Successfully achieved:")
+        print("   - Grid-agnostic training and inference")
+        print("   - ~99% memory reduction for large grids")
+        print("   - Maintained performance across grid sizes")
+        print("   - No retraining required for different grids")
+        print("   - Linear memory scaling instead of quadratic")
         
         return 0
         
     except Exception as e:
-        print(f"❌ Demonstration failed: {e}")
+        print(f"Demonstration failed: {e}")
         import traceback
         traceback.print_exc()
         return 1

@@ -11,7 +11,7 @@ from stable_baselines3 import PPO
 def debug_circuit_flow():
     """Debug the complete flow to see where components get lost."""
     
-    print("🔍 DEBUGGING CIRCUIT SIZE ISSUE")
+    print("DEBUGGING CIRCUIT SIZE ISSUE")
     print("=" * 50)
     
     # 1. Load circuit manager
@@ -85,7 +85,7 @@ def debug_circuit_flow():
         # Get next action
         action, _states = model.predict(obs, deterministic=True)
     
-    print("\n✅ Debug complete!")
+    print("\nDebug complete!")
 
 if __name__ == "__main__":
     debug_circuit_flow()

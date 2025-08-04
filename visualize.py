@@ -281,10 +281,10 @@ class AnalogLayoutVisualizer:
         
         # Create statistics text
         stats_text = f"""Layout Statistics:
-• Components: {num_placed}/{total_components}
-• Bounding Box: {bbox_area} units²
-• Avg Connection Distance: {avg_distance:.1f}
-• Symmetry Ratio: {symmetry_ratio:.1%}"""
+- Components: {num_placed}/{total_components}
+- Bounding Box: {bbox_area} units²
+- Avg Connection Distance: {avg_distance:.1f}
+- Symmetry Ratio: {symmetry_ratio:.1%}"""
         
         # Add text box
         ax.text(0.02, 0.02, stats_text, transform=ax.transAxes, fontsize=9,

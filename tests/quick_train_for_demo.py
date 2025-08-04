@@ -11,7 +11,7 @@ import os
 
 def quick_train():
     """Train a simple model quickly for demonstration."""
-    print("🎯 Quick training for grid-agnostic model demonstration...")
+    print("Quick training for grid-agnostic model demonstration...")
     
     # Create environment
     def make_env():
@@ -38,7 +38,7 @@ def quick_train():
     model_path = "./logs/clara_final_model"
     model.save(model_path)
     
-    print(f"✅ Model saved to {model_path}.zip")
+    print(f"Model saved to {model_path}.zip")
     print("Now you can run: python run_model.py")
     
     env.close()

@@ -34,12 +34,13 @@ class AnalogLayoutEnv(gym.Env):
     Custom Gym environment for analog IC component placement using relational actions.
     """
     
-    def __init__(self, grid_size: int = 64, max_components: int = 10):
+    def __init__(self, grid_size: int = 64, max_components: int = 10, enable_action_masking: bool = True):
         super().__init__()
         
         self.grid_size = grid_size
         self.max_components = max_components
-        self.max_steps = max_components * 3  # Limit episode length
+        self.max_steps = max_components * 10  # Limit episode length
+        self.enable_action_masking = enable_action_masking
         
         # Action space: [target_component_id, spatial_relation_type, orientation]
         self.action_space = spaces.MultiDiscrete([
@@ -49,7 +50,7 @@ class AnalogLayoutEnv(gym.Env):
         ])
         
         # Observation space
-        self.observation_space = spaces.Dict({
+        obs_dict = {
             "component_graph": spaces.Box(
                 low=0, high=1, 
                 shape=(max_components, max_components), 
@@ -70,7 +71,17 @@ class AnalogLayoutEnv(gym.Env):
                 shape=(max_components,),
                 dtype=np.int8
             )
-        })
+        }
+        
+        # Add action mask to observation space if enabled
+        if self.enable_action_masking:
+            obs_dict["action_mask"] = spaces.Box(
+                low=0, high=1,
+                shape=(max_components,),  # Mask for valid target components
+                dtype=np.int8
+            )
+            
+        self.observation_space = spaces.Dict(obs_dict)
         
         # Environment state
         self.reset()
@@ -319,12 +330,30 @@ class AnalogLayoutEnv(gym.Env):
                     attrs.get('matched_component', -1)
                 ]
         
-        return {
+        obs = {
             "component_graph": adj_matrix.astype(np.float32),
             "placed_components_list": placed_components_list.astype(np.float32),
             "netlist_features": netlist_features.astype(np.float32),
             "placement_mask": self.placed_mask.astype(np.int8)
         }
+        
+        # Add action mask if enabled
+        if self.enable_action_masking:
+            obs["action_mask"] = self._get_action_mask()
+            
+        return obs
+    
+    def _get_action_mask(self) -> np.ndarray:
+        """Generate action mask for valid target components."""
+        action_mask = np.zeros(self.max_components, dtype=np.int8)
+        
+        # Only placed components can be used as targets
+        for i in range(min(self.num_components, self.max_components)):
+            if self.placed_mask[i]:
+                action_mask[i] = 1
+        
+        return action_mask
+    
     # NOTE: Random circuit generation commented out - now using real SPICE circuits
     # See train_spice_real.py for SPICE-based training with actual analog circuits
     def _generate_random_circuit(self) -> nx.Graph:

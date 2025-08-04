@@ -114,7 +114,7 @@ def load_spice_circuits(spice_dir: str = "./schematics") -> List[nx.Graph]:
     parser = SpiceParser()
     circuits = []
     
-    print(f"📁 Loading SPICE files from {spice_dir}...")
+    print(f"Loading SPICE files from {spice_dir}...")
     
     for spice_file in spice_dir.glob("*.spice"):
         try:
@@ -124,14 +124,14 @@ def load_spice_circuits(spice_dir: str = "./schematics") -> List[nx.Graph]:
             # Filter out circuits that are too large or too small
             if 3 <= len(circuit.nodes) <= 2000:
                 circuits.append(circuit)
-                print(f"    ✅ Added circuit with {len(circuit.nodes)} components")
+                print(f"    Added circuit with {len(circuit.nodes)} components")
             else:
-                print(f"    ⚠️  Skipped circuit ({len(circuit.nodes)} components - outside range 3-20)")
+                print(f"     Skipped circuit ({len(circuit.nodes)} components - outside range 3-20)")
                 
         except Exception as e:
-            print(f"    ❌ Failed to parse {spice_file.name}: {e}")
+            print(f"    Failed to parse {spice_file.name}: {e}")
     
-    print(f"📊 Loaded {len(circuits)} SPICE circuits")
+    print(f"Loaded {len(circuits)} SPICE circuits")
     return circuits
 
 
@@ -192,7 +192,7 @@ class SpiceTrainingCallback(BaseCallback):
 def main():
     """Main training function for SPICE-integrated CLARA."""
     
-    print("🚀 CLARA SPICE Training")
+    print("CLARA SPICE Training")
     print("="*50)
     
     # Configuration
@@ -222,10 +222,10 @@ def main():
     spice_circuits = load_spice_circuits("./schematics")
     
     if not spice_circuits:
-        print("❌ No SPICE circuits found! Please add .spice files to ./schematics/")
+        print("No SPICE circuits found! Please add .spice files to ./schematics/")
         return 1
     
-    print(f"\n📋 Circuit Summary:")
+    print(f"\nCircuit Summary:")
     circuit_sizes = {}
     for circuit in spice_circuits:
         size = len(circuit.nodes)
@@ -235,14 +235,14 @@ def main():
         print(f"  {count} circuits with {size} components")
     
     # Create training environment
-    print(f"\n🏗️  Setting up training environment...")
+    print(f"\nSetting up training environment...")
     env = setup_spice_training_environment(config, spice_circuits)
     
     # Create evaluation environment
     eval_env = setup_spice_training_environment({**config, 'n_envs': 1}, spice_circuits)
     
     # Initialize PPO with standard policy
-    print(f"🤖 Initializing PPO model...")
+    print(f"Initializing PPO model...")
     model = PPO(
         "MultiInputPolicy",  # Using standard policy for now
         env,
@@ -287,7 +287,7 @@ def main():
         )
     ]
     
-    print(f"\n🎓 Starting training...")
+    print(f"\nStarting training...")
     print(f"Configuration: {config}")
     print(f"Logging to: {log_dir}")
     
@@ -302,7 +302,7 @@ def main():
         # Save final model
         final_model_path = os.path.join(log_dir, "clara_spice_final_model")
         model.save(final_model_path)
-        print(f"\n✅ Training completed! Final model saved to: {final_model_path}")
+        print(f"\nTraining completed! Final model saved to: {final_model_path}")
         
         # Save circuit information
         circuit_info_path = os.path.join(log_dir, "spice_circuits_info.txt")
@@ -324,7 +324,7 @@ def main():
                 
                 f.write(f"  Component types: {component_types}\n")
         
-        print(f"📋 Circuit information saved to: {circuit_info_path}")
+        print(f"Circuit information saved to: {circuit_info_path}")
         
     except KeyboardInterrupt:
         print("Training interrupted by user.")
