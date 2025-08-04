@@ -126,7 +126,8 @@ class AnalogLayoutEnv(gym.Env):
             return self._format_step_return(self._get_observation(), sum(reward.values()), True, info)
         
         # Check if target component is placed
-        if not self.placed_mask[target_component_id] or target_component_id >= self.num_components:
+        if (target_component_id >= min(self.num_components, len(self.placed_mask)) or 
+            not self.placed_mask[target_component_id]):
             # Invalid action - referencing unplaced component
             info["valid_action"] = False
             reward = {"invalid_action": -1.0}  # Reduced penalty
@@ -169,7 +170,7 @@ class AnalogLayoutEnv(gym.Env):
     
     def _get_next_unplaced_component(self) -> Optional[int]:
         """Get the next component that hasn't been placed yet."""
-        for i in range(self.num_components):
+        for i in range(min(self.num_components, len(self.placed_mask))):
             if not self.placed_mask[i]:
                 return i
         return None
@@ -324,9 +325,26 @@ class AnalogLayoutEnv(gym.Env):
             "netlist_features": netlist_features.astype(np.float32),
             "placement_mask": self.placed_mask.astype(np.int8)
         }
-    # current circuit generation method; fully random
+    # NOTE: Random circuit generation commented out - now using real SPICE circuits
+    # See train_spice_real.py for SPICE-based training with actual analog circuits
     def _generate_random_circuit(self) -> nx.Graph:
-        """Generate a random small analog circuit for testing."""
+        """
+        Generate a random small analog circuit for testing.
+        DEPRECATED: Now using real SPICE circuits for training.
+        This method kept for backward compatibility with existing code.
+        """
+        # Simple fallback circuit for compatibility
+        G = nx.Graph()
+        G.add_node(0, component_type=0, width=2, height=1, matched_component=-1)
+        G.add_node(1, component_type=1, width=2, height=1, matched_component=-1) 
+        G.add_node(2, component_type=0, width=1, height=2, matched_component=-1)
+        G.add_edge(0, 1)
+        G.add_edge(1, 2)
+        return G
+        
+        # COMMENTED OUT: Original random circuit generation
+        # Now transitioning to exclusively use real SPICE circuits
+        """
         num_components = np.random.randint(3, min(8, self.max_components + 1))
         G = nx.Graph()
         
@@ -355,6 +373,7 @@ class AnalogLayoutEnv(gym.Env):
                     G.nodes[comp2]['matched_component'] = comp1
         
         return G
+        """
 
     def render(self, mode='human'):
         """Render the current state (basic text representation)."""

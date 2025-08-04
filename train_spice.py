@@ -122,7 +122,7 @@ def load_spice_circuits(spice_dir: str = "./schematics") -> List[nx.Graph]:
             circuit = parser.parse_spice_file(str(spice_file))
             
             # Filter out circuits that are too large or too small
-            if 3 <= len(circuit.nodes) <= 20:
+            if 3 <= len(circuit.nodes) <= 2000:
                 circuits.append(circuit)
                 print(f"    ✅ Added circuit with {len(circuit.nodes)} components")
             else:

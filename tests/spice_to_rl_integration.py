@@ -29,7 +29,7 @@ class SpiceCircuitIntegrator:
         
         # Filter successful parses and reasonable sizes for RL
         for filename, data in results.items():
-            if 'error' not in data and 2 <= data['num_components'] <= 12:
+            if 'error' not in data and 2 <= data['num_components'] <= 2000:
                 self.parsed_circuits[filename] = data
                 print(f"✅ Loaded {filename}: {data['num_components']} components")
             elif 'error' not in data:

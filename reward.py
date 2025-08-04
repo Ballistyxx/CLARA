@@ -23,8 +23,8 @@ class RewardCalculator:
         """Initialize reward calculator with component weights."""
         self.weights = weights or {
             'symmetry': 0.2,
-            'compactness': 0.15,
-            'connectivity': 0.1,
+            'compactness': 0.45,
+            'connectivity': 0.0,
             'completion': 1.0,
             'placement_step': 0.1,
             'invalid_action': -1.0,

@@ -10,8 +10,91 @@ import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 from analog_layout_env import AnalogLayoutEnv
 from visualize import AnalogLayoutVisualizer
-from data.circuit_generator import AnalogCircuitGenerator
+from enhanced_spice_parser import EnhancedSpiceParser, parse_multiple_spice_files
+from train_spice_real import SpiceCircuitManager
 import argparse
+import networkx as nx
+
+
+def sample_large_circuit(circuit: nx.Graph, max_components: int, strategy='diverse') -> nx.Graph:
+    """
+    Create a representative subset of a large circuit.
+    
+    Args:
+        circuit: Original NetworkX graph
+        max_components: Maximum number of components to keep
+        strategy: Sampling strategy ('diverse', 'connected', 'random')
+    
+    Returns:
+        Subgraph with at most max_components nodes
+    """
+    if len(circuit.nodes) <= max_components:
+        return circuit
+    
+    print(f"   Circuit has {len(circuit.nodes)} components, sampling {max_components} for model compatibility")
+    
+    if strategy == 'diverse':
+        # Sample to get diverse component types and good connectivity
+        nodes_to_keep = []
+        
+        # Get component type distribution
+        type_counts = {}
+        for node in circuit.nodes():
+            comp_type = circuit.nodes[node].get('component_type', 0)
+            if comp_type not in type_counts:
+                type_counts[comp_type] = []
+            type_counts[comp_type].append(node)
+        
+        # Sample proportionally from each type
+        components_per_type = max_components // len(type_counts)
+        remainder = max_components % len(type_counts)
+        
+        for comp_type, nodes in type_counts.items():
+            sample_count = components_per_type + (1 if remainder > 0 else 0)
+            if remainder > 0:
+                remainder -= 1
+            
+            # Sample nodes of this type, preferring highly connected ones
+            node_degrees = [(node, circuit.degree(node)) for node in nodes]
+            node_degrees.sort(key=lambda x: x[1], reverse=True)
+            
+            selected = [node for node, _ in node_degrees[:sample_count]]
+            nodes_to_keep.extend(selected)
+        
+        # Ensure we don't exceed max_components
+        nodes_to_keep = nodes_to_keep[:max_components]
+        
+    elif strategy == 'connected':
+        # Select the most connected components
+        node_degrees = [(node, circuit.degree(node)) for node in circuit.nodes()]
+        node_degrees.sort(key=lambda x: x[1], reverse=True)
+        nodes_to_keep = [node for node, _ in node_degrees[:max_components]]
+        
+    else:  # random
+        import random
+        nodes_to_keep = random.sample(list(circuit.nodes()), max_components)
+    
+    # Create subgraph and remap node IDs to be sequential
+    subgraph = circuit.subgraph(nodes_to_keep).copy()
+    
+    # Remap nodes to sequential IDs (0, 1, 2, ...)
+    mapping = {old_id: new_id for new_id, old_id in enumerate(sorted(nodes_to_keep))}
+    remapped_circuit = nx.relabel_nodes(subgraph, mapping)
+    
+    # Update matched_component references in node attributes
+    for node in remapped_circuit.nodes():
+        attrs = remapped_circuit.nodes[node]
+        if 'matched_component' in attrs and attrs['matched_component'] != -1:
+            old_matched = attrs['matched_component']
+            if old_matched in mapping:
+                attrs['matched_component'] = mapping[old_matched]
+            else:
+                attrs['matched_component'] = -1  # Referenced component not in subset
+    
+    print(f"   Sampled circuit: {len(remapped_circuit.nodes)} components, {len(remapped_circuit.edges)} connections")
+    print(f"   Component types in sample: {[remapped_circuit.nodes[n].get('component_type', 0) for n in remapped_circuit.nodes()]}")
+    
+    return remapped_circuit
 
 
 def load_model(model_path: str):
@@ -36,13 +119,17 @@ def load_model(model_path: str):
     raise FileNotFoundError(f"Model not found. Tried paths: {[p + '.zip' for p in possible_paths]}")
 
 
-def run_single_episode(model, env, deterministic=True, render=False):
+def run_single_episode(model, env, deterministic=True, render=False, reset_env=True):
     """Run a single episode with the trained model."""
-    result = env.reset()
-    if isinstance(result, tuple):
-        obs, info = result
+    if reset_env:
+        result = env.reset()
+        if isinstance(result, tuple):
+            obs, info = result
+        else:
+            obs = result
     else:
-        obs = result
+        # Environment already reset with specific circuit, just get current observation
+        obs = env._get_observation()
     
     total_reward = 0
     step = 0
@@ -108,7 +195,7 @@ def run_single_episode(model, env, deterministic=True, render=False):
     return episode_data, total_reward, step, success
 
 
-def run_multiple_episodes(model, env, num_episodes=5, deterministic=True):
+def run_multiple_episodes(model, env, num_episodes=5, deterministic=True, specific_circuit=None):
     """Run multiple episodes and collect statistics."""
     print(f"\n  Running {num_episodes} episodes...")
     
@@ -118,9 +205,17 @@ def run_multiple_episodes(model, env, num_episodes=5, deterministic=True):
     success_count = 0
     
     for episode in range(num_episodes):
-        episode_data, reward, steps, success = run_single_episode(
-            model, env, deterministic=deterministic, render=False
-        )
+        if specific_circuit is not None:
+            # Reset environment with the specific circuit for each episode
+            env.reset(circuit_graph=specific_circuit)
+            episode_data, reward, steps, success = run_single_episode(
+                model, env, deterministic=deterministic, render=False, reset_env=False
+            )
+        else:
+            # Use default reset behavior
+            episode_data, reward, steps, success = run_single_episode(
+                model, env, deterministic=deterministic, render=False, reset_env=True
+            )
         
         episode_results.append(episode_data)
         total_rewards.append(reward)
@@ -166,24 +261,25 @@ def visualize_episode(episode_data, grid_size=20, save_path=None):
     return fig
 
 
-def test_grid_transferability(model, base_grid_size=20):
+def test_grid_transferability(model, circuit_manager, base_grid_size=20):
+    """Test model transferability across different grid sizes using real SPICE circuits."""
     # Get max_components from model
     model_obs_space = model.observation_space.spaces
     max_components = model_obs_space['component_graph'].shape[0]
-    """Test model transferability across different grid sizes."""
-    print("\n🔄 Testing Grid Transferability...")
+    
+    print("\n🔄 Testing Grid Transferability with Real SPICE Circuits...")
     print("This demonstrates that models trained on one grid size work on any other grid size!")
     
     # Test different grid sizes
     grid_sizes = [16, 24, 32, 48, 64]
     results = []
     
-    # Create a test circuit
-    from data.circuit_generator import AnalogCircuitGenerator
-    generator = AnalogCircuitGenerator()
-    test_circuit = generator.generate_differential_pair()
+    # Get a test circuit from SPICE data
+    test_circuit_name = list(circuit_manager.suitable_circuits.keys())[0]
+    test_circuit_data = circuit_manager.suitable_circuits[test_circuit_name]
+    test_circuit = circuit_manager.convert_to_networkx_graph(test_circuit_data)
     
-    print(f"Testing circuit with {len(test_circuit.nodes)} components on different grid sizes...")
+    print(f"Testing {test_circuit_name} with {len(test_circuit.nodes)} components on different grid sizes...")
     
     for grid_size in grid_sizes:
         print(f"\n📊 Grid size: {grid_size}×{grid_size}")
@@ -194,7 +290,7 @@ def test_grid_transferability(model, base_grid_size=20):
         
         # Run episode
         episode_data, reward, steps, success = run_single_episode(
-            model, env, deterministic=True, render=False
+            model, env, deterministic=True, render=False, reset_env=False
         )
         
         # Calculate layout density
@@ -261,79 +357,91 @@ def test_grid_transferability(model, base_grid_size=20):
     return results
 
 
-def test_different_circuits(model, grid_size=20):
-    """Test the model on different circuit types."""
-    print(f"\nTesting model on different circuit types (Grid: {grid_size}×{grid_size})...")
+def test_different_circuits(model, circuit_manager, grid_size=20, sampling_strategy='diverse'):
+    """Test the model on different real SPICE circuit types."""
+    print(f"\nTesting model on different SPICE circuits (Grid: {grid_size}×{grid_size})...")
     
-    generator = AnalogCircuitGenerator()
+    # Get max_components from model
+    model_obs_space = model.observation_space.spaces
+    max_components = model_obs_space['component_graph'].shape[0]
+    
     visualizer = AnalogLayoutVisualizer(grid_size=grid_size)
-    
-    # Test different circuit types
-    circuit_types = [
-        ("Differential Pair", generator.generate_differential_pair),
-        ("Current Mirror", generator.generate_current_mirror),
-        ("Common Source", generator.generate_common_source_amplifier),
-        ("Random Circuit", lambda: generator.generate_random_circuit(3, 6)),
-    ]
     
     results = []
     
-    for circuit_name, circuit_func in circuit_types:
-        print(f"\nTesting {circuit_name}...")
+    # Test all available SPICE circuits
+    for circuit_name, circuit_data in circuit_manager.suitable_circuits.items():
+        print(f"\nTesting {circuit_name} ({circuit_data['subcircuit_name']})...")
         
         try:
-            circuit = circuit_func()
+            # Convert to NetworkX graph
+            circuit = circuit_manager.convert_to_networkx_graph(circuit_data)
+            original_size = len(circuit.nodes)
             
-            # Skip if too many components
-            if len(circuit.nodes) > 6:
-                print(f"Skipping - too many components ({len(circuit.nodes)})")
-                continue
+            # Handle large circuits by sampling
+            if original_size > max_components:
+                print(f"Sampling - circuit has {original_size} components, model limit is {max_components}")
+                circuit = sample_large_circuit(circuit, max_components, strategy=sampling_strategy)
             
             # Create environment with this specific circuit
-            env = AnalogLayoutEnv(grid_size=grid_size, max_components=6)  # Match training
+            env = AnalogLayoutEnv(grid_size=grid_size, max_components=max_components)
             env.reset(circuit_graph=circuit)
             
             # Run episode
             episode_data, reward, steps, success = run_single_episode(
-                model, env, deterministic=True, render=False
+                model, env, deterministic=True, render=False, reset_env=False
             )
             
             print(f"Reward: {reward:.3f}, Steps: {steps}, Success: {'Yes' if success else 'No'}")
+            print(f"Components: {len(circuit.nodes)} (original: {original_size}, total: {circuit_data['num_components']})")
             
             # Visualize
-            fig = visualize_episode(episode_data, grid_size=grid_size, save_path=f"layout_{circuit_name.lower().replace(' ', '_')}.png")
+            safe_name = circuit_name.replace('.spice', '').replace(' ', '_').replace('/', '_')
+            fig = visualize_episode(episode_data, grid_size=grid_size, 
+                                  save_path=f"layout_spice_{safe_name}.png")
             plt.close(fig)
             
             results.append({
                 'name': circuit_name,
+                'subcircuit': circuit_data['subcircuit_name'],
                 'reward': reward,
                 'steps': steps,
                 'success': success,
-                'components': len(circuit.nodes)
+                'components': len(circuit.nodes),
+                'original_components': original_size,
+                'total_components': circuit_data['num_components']
             })
             
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error testing {circuit_name}: {e}")
     
     return results
 
 
 def main():
     """Main function."""
-    parser = argparse.ArgumentParser(description='Run trained CLARA model with grid-agnostic capabilities')
+    parser = argparse.ArgumentParser(description='Run trained CLARA model with real SPICE circuits')
     parser.add_argument('--model', '-m', type=str, 
-                       default='./logs/clara_final_model',
+                       default='./logs/best_model',
                        help='Path to trained model (without .zip extension)')
     parser.add_argument('--episodes', '-e', type=int, default=3,
                        help='Number of episodes to run')
     parser.add_argument('--grid-size', '-g', type=int, default=20,
                        help='Grid size for evaluation (default: 20)')
+    parser.add_argument('--circuit', '-c', type=str, default=None,
+                       help='Specific SPICE circuit name to test (e.g., "NAND.spice")')
+    parser.add_argument('--spice-dir', type=str, 
+                       default='/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits',
+                       help='Directory containing SPICE files')
+    parser.add_argument('--sampling-strategy', type=str, default='diverse',
+                       choices=['diverse', 'connected', 'random'],
+                       help='Strategy for sampling large circuits (diverse, connected, random)')
     parser.add_argument('--deterministic', '-d', action='store_true',
                        help='Use deterministic actions')
     parser.add_argument('--visualize', '-v', action='store_true',
                        help='Create visualizations')
     parser.add_argument('--test-circuits', '-t', action='store_true',
-                       help='Test on different circuit types')
+                       help='Test on all available SPICE circuits')
     parser.add_argument('--test-transferability', '--transfer', action='store_true',
                        help='Test grid transferability across different sizes')
     parser.add_argument('--render', '-r', action='store_true',
@@ -342,75 +450,122 @@ def main():
     args = parser.parse_args()
     
     try:
-        print(f"🚀 CLARA Grid-Agnostic Model Runner")
+        print(f"🚀 CLARA Model with Real SPICE Circuits")
         print(f"=" * 50)
         
         # Load model
         model = load_model(args.model)
         
-        # Create environment with specified grid size
+        # Initialize SPICE circuit manager
+        print(f"📁 Loading SPICE circuits from {args.spice_dir}")
+        circuit_manager = SpiceCircuitManager(args.spice_dir)
+        
+        # Print circuit statistics
+        stats = circuit_manager.get_circuit_stats()
+        print(f"✅ Loaded {stats['total_circuits']} SPICE circuits for evaluation")
+        print(f"   Component range: {stats['component_range'][0]}-{stats['component_range'][1]}")
+        print(f"   Available circuits: {', '.join(list(stats['circuit_names'])[:3])}...")
+        
         # Extract max_components from model's observation space
         model_obs_space = model.observation_space.spaces
         max_components = model_obs_space['component_graph'].shape[0]
         
-        env = AnalogLayoutEnv(grid_size=args.grid_size, max_components=max_components)
-        
         print(f"   Model expects max {max_components} components")
+        print(f"   Grid: {args.grid_size}×{args.grid_size}")
         
-        print(f"Environment: {env.grid_size}×{env.grid_size} grid, max {env.max_components} components")
-        print(f"🚀 Grid-agnostic model - can run on any grid size!")
-        
-        # Run episodes
+        # Run episodes on SPICE circuits
         if args.episodes > 0:
+            # Select circuit to test
+            if args.circuit:
+                if args.circuit in circuit_manager.suitable_circuits:
+                    circuit_data = circuit_manager.suitable_circuits[args.circuit]
+                    test_circuit = circuit_manager.convert_to_networkx_graph(circuit_data)
+                    circuit_name = args.circuit
+                else:
+                    print(f"Circuit {args.circuit} not found. Available circuits:")
+                    for name in circuit_manager.suitable_circuits.keys():
+                        print(f"   - {name}")
+                    return 1
+            else:
+                # Use random circuit from SPICE data
+                test_circuit = circuit_manager.get_random_circuit()
+                circuit_name = "random SPICE circuit"
+            
+            # Handle large circuits by sampling
+            actual_components = len(test_circuit.nodes)
+            
+            print(f"\n🧪 Testing on {circuit_name} ({actual_components} components)")
+            
+            if actual_components > max_components:
+                print(f"   Model trained for {max_components} components, circuit has {actual_components}")
+                test_circuit = sample_large_circuit(test_circuit, max_components, strategy=args.sampling_strategy)
+                print(f"   Using sampled circuit with {len(test_circuit.nodes)} components")
+            
+            # Create environment with model's max_components
+            env = AnalogLayoutEnv(grid_size=args.grid_size, max_components=max_components)
+            env.reset(circuit_graph=test_circuit)
+            
             if args.episodes == 1:
                 episode_data, reward, steps, success = run_single_episode(
-                    model, env, deterministic=args.deterministic, render=args.render
+                    model, env, deterministic=args.deterministic, render=args.render, reset_env=False
                 )
                 
                 if args.visualize:
-                    fig = visualize_episode(episode_data, grid_size=args.grid_size, save_path="clara_layout.png")
-                    print("Layout saved as 'clara_layout.png'")
+                    safe_name = circuit_name.replace('.spice', '').replace(' ', '_').replace('/', '_')
+                    fig = visualize_episode(episode_data, grid_size=args.grid_size, 
+                                          save_path=f"clara_layout_{safe_name}.png")
+                    print(f"Layout saved as 'clara_layout_{safe_name}.png'")
                     plt.show()
             else:
+                # For multiple episodes with the same circuit, we can reset each time
                 episode_results, stats = run_multiple_episodes(
                     model, env, num_episodes=args.episodes, 
-                    deterministic=args.deterministic
+                    deterministic=args.deterministic, specific_circuit=test_circuit
                 )
                 
                 if args.visualize:
                     # Visualize the best episode
                     best_idx = np.argmax(stats['rewards'])
                     best_episode = episode_results[best_idx]
-                    fig = visualize_episode(best_episode, grid_size=args.grid_size, save_path="clara_best_layout.png")
-                    print(f"Best layout (episode {best_idx + 1}) saved as 'clara_best_layout.png'")
+                    safe_name = circuit_name.replace('.spice', '').replace(' ', '_').replace('/', '_')
+                    fig = visualize_episode(best_episode, grid_size=args.grid_size, 
+                                          save_path=f"clara_best_layout_{safe_name}.png")
+                    print(f"Best layout (episode {best_idx + 1}) saved as 'clara_best_layout_{safe_name}.png'")
                     plt.show()
         
         # Test grid transferability
         if args.test_transferability:
-            transfer_results = test_grid_transferability(model, base_grid_size=args.grid_size)
+            transfer_results = test_grid_transferability(model, circuit_manager, base_grid_size=args.grid_size)
         
         # Test different circuits
         if args.test_circuits:
-            circuit_results = test_different_circuits(model, grid_size=args.grid_size)
+            circuit_results = test_different_circuits(model, circuit_manager, 
+                                                     grid_size=args.grid_size, 
+                                                     sampling_strategy=args.sampling_strategy)
             
-            print(f"\nCircuit Type Performance Summary:")
+            print(f"\nSPICE Circuit Performance Summary:")
             for result in circuit_results:
-                print(f"{result['name']}: {result['reward']:.1f} reward, "
-                      f"{result['steps']} steps, {result['components']} components")
+                components_info = f"{result['components']} components"
+                if result.get('original_components', 0) != result['components']:
+                    components_info += f" (sampled from {result['original_components']})"
+                print(f"{result['name']} ({result['subcircuit']}): {result['reward']:.1f} reward, "
+                      f"{result['steps']} steps, {components_info}")
         
         print("\n✅ Model evaluation completed!")
         print("\n💡 Tips:")
+        print("   • Use --circuit to test specific SPICE circuits")
+        print("   • Use --test-circuits to test all available circuits")
+        print("   • Use --sampling-strategy to control large circuit sampling (diverse/connected/random)")
         print("   • Use --test-transferability to see grid-agnostic capabilities")
-        print("   • Use --grid-size to test on different sized grids")
         print("   • Use --visualize to see layout diagrams")
-        print("   • Models trained on any grid size work on any other grid size!")
+        print("   • Large circuits are automatically sampled to fit model constraints!")
         
     except FileNotFoundError as e:
-        print(f" Error: {e}")
-        print("Make sure you've run training first: python3 train.py")
+        print(f"❌ Error: {e}")
+        print("Make sure you've run training first: python3 train_spice_real.py")
         return 1
     except Exception as e:
-        print(f" Unexpected error: {e}")
+        print(f"❌ Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         return 1
