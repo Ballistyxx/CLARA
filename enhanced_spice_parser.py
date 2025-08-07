@@ -37,6 +37,9 @@ class ComponentInfo:
     width: float   # W parameter
     multiplier: int  # m parameter (creates multiple identical components)
     nf: int = 1     # Number of fingers
+    mx: int = 1     # Grid size x (CLARA layout parameter)
+    my: int = 1     # Grid size y (CLARA layout parameter)
+    pair_name: str = None  # Differential pair name if part of a pair
     spice_params: Dict[str, Any] = None
     clara_override: Dict[str, Any] = None  # CLARA override parameters
     
@@ -229,7 +232,7 @@ class EnhancedSpiceParser:
                     except ValueError:
                         params[key.upper()] = value
             
-            # Apply CLARA overrides if present
+            # Apply CLARA overrides if present (CLARA parameters always take precedence)
             if clara_override:
                 params.update(clara_override)
             
@@ -241,6 +244,11 @@ class EnhancedSpiceParser:
             mult = params.get('MULT', 1)  # Alternative multiplier parameter
             if mult != 1:
                 multiplier = int(mult)
+            
+            # Extract CLARA layout parameters
+            mx = int(params.get('MX', 1))  # Grid size x for layout
+            my = int(params.get('MY', 1))  # Grid size y for layout
+            pair_name = params.get('PAIR', None)  # Differential pair name
             
             # Determine component type from device model and name
             component_type = self._identify_component_type(name, device_model)
@@ -254,6 +262,9 @@ class EnhancedSpiceParser:
                 width=width,
                 multiplier=multiplier,
                 nf=nf,
+                mx=mx,
+                my=my,
+                pair_name=pair_name,
                 spice_params=params,
                 clara_override=clara_override if clara_override else {}
             )
@@ -274,23 +285,41 @@ class EnhancedSpiceParser:
         try:
             # Parse CLARA override parameters
             clara_params = {}
+            comment_part = comment_part.strip()
             
             # Look for override-size pattern
             if 'override-size' in comment_part:
-                # Pattern: ;CLARA override-size L=20 W=50 nf=1 m=1
+                # Pattern: ;CLARA override-size L=20 W=50 mx=3 my=4 nf=1 m=1
                 override_part = comment_part.split('override-size', 1)[1].strip()
                 
                 # Parse parameters in the override
                 for param in override_part.split():
                     if '=' in param:
                         key, value = param.split('=', 1)
+                        key = key.upper().strip()
                         try:
-                            clara_params[key.upper()] = float(value)
+                            # Convert to numeric if possible
+                            numeric_value = float(value.strip())
+                            clara_params[key] = numeric_value
                         except ValueError:
-                            clara_params[key.upper()] = value
+                            clara_params[key] = value.strip()
             
-            print(f"   CLARA override found: {clara_params}")
-            return main_part.strip(), clara_params
+            # Look for pair definition pattern
+            if 'pair' in comment_part:
+                # Pattern: ;CLARA pair input_diff (no angle brackets in actual file)
+                pair_match = comment_part.split('pair', 1)
+                if len(pair_match) > 1:
+                    pair_name = pair_match[1].strip()
+                    # Take first word if there are multiple words
+                    if ' ' in pair_name:
+                        pair_name = pair_name.split()[0]
+                    clara_params['PAIR'] = pair_name
+            
+            if clara_params:
+                print(f"   CLARA parameters found: {clara_params}")
+                return main_part.strip(), clara_params
+            else:
+                return main_part.strip(), None
         
         except Exception as e:
             print(f"   Warning: Failed to parse CLARA comment: {comment_part}")
@@ -349,6 +378,9 @@ class EnhancedSpiceParser:
                         width=comp.width,
                         multiplier=1,  # Individual components have multiplier 1
                         nf=comp.nf,
+                        mx=comp.mx,  # Preserve CLARA layout parameters
+                        my=comp.my,
+                        pair_name=comp.pair_name,  # Preserve pair information
                         spice_params=comp.spice_params.copy(),
                         clara_override=comp.clara_override.copy()
                     )
@@ -487,6 +519,9 @@ class EnhancedSpiceParser:
             'length': comp.length,
             'width': comp.width,
             'nf': comp.nf,
+            'mx': comp.mx,
+            'my': comp.my,
+            'pair_name': comp.pair_name,
             'spice_params': comp.spice_params,
             'clara_override': comp.clara_override
         }

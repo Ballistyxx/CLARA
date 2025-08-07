@@ -277,7 +277,9 @@ def test_grid_transferability(model, circuit_manager, base_grid_size=20):
     # Get a test circuit from SPICE data
     test_circuit_name = list(circuit_manager.suitable_circuits.keys())[0]
     test_circuit_data = circuit_manager.suitable_circuits[test_circuit_name]
-    test_circuit = circuit_manager.convert_to_networkx_graph(test_circuit_data)
+    
+    test_circuit = test_circuit_data['circuit_graph']
+    #test_circuit = circuit_manager.convert_to_networkx_graph(test_circuit_data)
     
     print(f"Testing {test_circuit_name} with {len(test_circuit.nodes)} components on different grid sizes...")
     
@@ -375,7 +377,8 @@ def test_different_circuits(model, circuit_manager, grid_size=20, sampling_strat
         
         try:
             # Convert to NetworkX graph
-            circuit = circuit_manager.convert_to_networkx_graph(circuit_data)
+            # circuit = circuit_manager.convert_to_networkx_graph(circuit_data)
+            circuit = circuit_data['circuit_graph']
             original_size = len(circuit.nodes)
             
             # Handle large circuits by sampling
@@ -479,7 +482,8 @@ def main():
             if args.circuit:
                 if args.circuit in circuit_manager.suitable_circuits:
                     circuit_data = circuit_manager.suitable_circuits[args.circuit]
-                    test_circuit = circuit_manager.convert_to_networkx_graph(circuit_data)
+                    # test_circuit = circuit_manager.convert_to_networkx_graph(circuit_data)
+                    test_circuit = circuit_data['circuit_graph']
                     circuit_name = args.circuit
                 else:
                     print(f"Circuit {args.circuit} not found. Available circuits:")

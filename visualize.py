@@ -108,6 +108,7 @@ class AnalogLayoutVisualizer:
         width = component_attrs.get('width', 1)
         height = component_attrs.get('height', 1)
         matched_comp = component_attrs.get('matched_component', -1)
+        print(f"Component {comp_id}: width={width}, height={height}, attrs={component_attrs}")
         
         # Adjust dimensions based on orientation
         if orientation in [1, 3]:  # 90° or 270°

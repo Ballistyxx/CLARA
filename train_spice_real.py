@@ -68,7 +68,10 @@ class SpiceCircuitManager:
         circuit_data = self.suitable_circuits[circuit_name]
         
         # Convert to NetworkX graph compatible with CLARA
-        return self.convert_to_networkx_graph(circuit_data)
+        # return self.convert_to_networkx_graph(circuit_data)
+        
+        # use the circuit_graph that enhanced_spice_parser already created
+        return circuit_data['circuit_graph']
     
     def convert_to_networkx_graph(self, circuit_data: dict) -> nx.Graph:
         """Convert parsed SPICE data to NetworkX graph compatible with CLARA."""
@@ -81,14 +84,20 @@ class SpiceCircuitManager:
             # Map SPICE component types to CLARA types
             clara_type = comp['type_value']  # Already mapped: NMOS=0, PMOS=1, etc.
             
-            # Use normalized component dimensions to prevent grid overflow
-            # Apply square root scaling to reduce extreme sizes
-            raw_width = max(0.1, comp['width'])
-            raw_length = max(0.1, comp['length'])
+            # Use CLARA mx/my parameters if available, otherwise apply simple proportional scaling
+            if 'mx' in comp and comp['mx'] > 0:
+                width = int(comp['mx'])
+            else:
+                # Simple proportional scaling preserving relative sizes
+                raw_width = max(0.1, comp['width'])
+                width = max(1, min(8, int(raw_width * 0.8 + 0.5)))
             
-            # Square root scaling with reasonable bounds
-            width = max(1, min(8, int(np.sqrt(raw_width) + 0.5)))
-            height = max(1, min(8, int(np.sqrt(raw_length) + 0.5)))
+            if 'my' in comp and comp['my'] > 0:
+                height = int(comp['my'])
+            else:
+                # Simple proportional scaling preserving relative sizes  
+                raw_length = max(0.1, comp['length'])
+                height = max(1, min(8, int(raw_length * 0.5 + 0.5)))
             
             # Find matched components for symmetry
             matched_component = self._find_matched_component(comp, components, i)
@@ -112,7 +121,16 @@ class SpiceCircuitManager:
     
     def _find_matched_component(self, comp, all_components, current_index):
         """Find matched component for differential pairs, current mirrors, etc."""
-        # Look for components with same type and similar dimensions
+        # First priority: explicit CLARA pair definitions
+        if 'pair_name' in comp and comp['pair_name']:
+            pair_name = comp['pair_name']
+            for j, other_comp in enumerate(all_components):
+                if (j != current_index and 
+                    'pair_name' in other_comp and 
+                    other_comp['pair_name'] == pair_name):
+                    return j
+        
+        # Second priority: look for components with same type and similar dimensions
         for j, other_comp in enumerate(all_components):
             if (j != current_index and 
                 other_comp['type_value'] == comp['type_value'] and
