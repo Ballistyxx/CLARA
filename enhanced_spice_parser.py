@@ -401,10 +401,10 @@ class EnhancedSpiceParser:
         
         # Add components as nodes with attributes for RL
         for i, comp in enumerate(components):
-            # Calculate component dimensions for RL (normalized)
-            # Use W and L to determine relative size
-            width_units = max(1, int(comp.width))
-            height_units = max(1, int(comp.length))
+            # Calculate component dimensions for RL (preserve fractional values)
+            # Use W and L to determine relative size with reasonable bounds
+            width_units = max(0.1, min(10.0, comp.width))
+            height_units = max(0.1, min(10.0, comp.length))
             
             # Find matched components (components with similar characteristics)
             matched_component = self._find_matched_component(comp, components, i)

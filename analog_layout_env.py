@@ -62,7 +62,7 @@ class AnalogLayoutEnv(gym.Env):
                 dtype=np.float32
             ),
             "netlist_features": spaces.Box(
-                low=0, high=10,
+                low=0, high=10.0,
                 shape=(max_components, 4),  # [component_type, width, height, matched_component]
                 dtype=np.float32
             ),
@@ -96,7 +96,7 @@ class AnalogLayoutEnv(gym.Env):
         
         self.circuit = circuit_graph
         self.num_components = len(self.circuit.nodes)
-        self.occupied_cells = set()  # Track (x,y) coordinates only
+        self.component_rectangles = {}  # component_id -> (x, y, width, height) for collision detection
         self.component_positions = {}  # component_id -> (x, y, orientation)
         self.placed_mask = np.zeros(self.max_components, dtype=bool)
         self.current_step = 0
@@ -189,18 +189,15 @@ class AnalogLayoutEnv(gym.Env):
     def _place_component(self, component_id: int, x: int, y: int, orientation: int):
         """Place a component on the grid."""
         component_attrs = self.circuit.nodes[component_id]
-        width = component_attrs.get('width', 1)
-        height = component_attrs.get('height', 1)
+        width = component_attrs.get('width', 1.0)
+        height = component_attrs.get('height', 1.0)
         
         # Adjust dimensions based on orientation
         if orientation in [1, 3]:  # 90° or 270°
             width, height = height, width
         
-        # Mark grid positions as occupied using set
-        for dx in range(width):
-            for dy in range(height):
-                if 0 <= x + dx < self.grid_size and 0 <= y + dy < self.grid_size:
-                    self.occupied_cells.add((x + dx, y + dy))
+        # Store component rectangle for collision detection
+        self.component_rectangles[component_id] = (float(x), float(y), float(width), float(height))
         
         self.component_positions[component_id] = (x, y, orientation)
         self.placed_mask[component_id] = True
@@ -210,8 +207,8 @@ class AnalogLayoutEnv(gym.Env):
         """Calculate position based on spatial relation to target component."""
         target_x, target_y, target_orient = target_pos
         component_attrs = self.circuit.nodes[component_id]
-        comp_width = component_attrs.get('width', 1)
-        comp_height = component_attrs.get('height', 1)
+        comp_width = component_attrs.get('width', 1.0)
+        comp_height = component_attrs.get('height', 1.0)
         
         # Calculate offset based on relation
         offset_map = {
@@ -234,13 +231,36 @@ class AnalogLayoutEnv(gym.Env):
             new_y + comp_height > self.grid_size):
             return None
         
-        # Check for overlap using set
-        for dx in range(comp_width):
-            for dy in range(comp_height):
-                if (new_x + dx, new_y + dy) in self.occupied_cells:
-                    return None
+        # Check for overlap with existing components using rectangle intersection
+        new_rect = (float(new_x), float(new_y), float(comp_width), float(comp_height))
+        for existing_rect in self.component_rectangles.values():
+            if self._rectangles_overlap(new_rect, existing_rect):
+                return None
         
         return (new_x, new_y)
+    
+    def _rectangles_overlap(self, rect1: Tuple[float, float, float, float], 
+                          rect2: Tuple[float, float, float, float]) -> bool:
+        """Check if two rectangles overlap.
+        
+        Args:
+            rect1: (x, y, width, height)
+            rect2: (x, y, width, height)
+        
+        Returns:
+            True if rectangles overlap, False otherwise
+        """
+        x1, y1, w1, h1 = rect1
+        x2, y2, w2, h2 = rect2
+        
+        # Check for non-overlap conditions (rectangles are separate)
+        if (x1 >= x2 + w2 or  # rect1 is to the right of rect2
+            x2 >= x1 + w1 or  # rect2 is to the right of rect1
+            y1 >= y2 + h2 or  # rect1 is below rect2
+            y2 >= y1 + h1):   # rect2 is below rect1
+            return False
+        
+        return True  # Rectangles overlap
     
     def _calculate_reward(self) -> Dict[str, float]:
         """Calculate reward based on current layout."""
@@ -325,8 +345,8 @@ class AnalogLayoutEnv(gym.Env):
                 attrs = self.circuit.nodes[node_id]
                 netlist_features[i] = [
                     attrs.get('component_type', 0),
-                    attrs.get('width', 1),
-                    attrs.get('height', 1),
+                    attrs.get('width', 1.0),
+                    attrs.get('height', 1.0),
                     attrs.get('matched_component', -1)
                 ]
         

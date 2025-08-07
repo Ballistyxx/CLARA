@@ -105,8 +105,8 @@ class AnalogLayoutVisualizer:
         """Draw a single component on the layout."""
         
         comp_type = component_attrs.get('component_type', 0)
-        width = component_attrs.get('width', 1)
-        height = component_attrs.get('height', 1)
+        width = component_attrs.get('width', 1.0)
+        height = component_attrs.get('height', 1.0)
         matched_comp = component_attrs.get('matched_component', -1)
         print(f"Component {comp_id}: width={width}, height={height}, attrs={component_attrs}")
         
@@ -197,10 +197,10 @@ class AnalogLayoutVisualizer:
                 attrs1 = circuit.nodes[comp1]
                 attrs2 = circuit.nodes[comp2]
                 
-                width1 = attrs1.get('width', 1)
-                height1 = attrs1.get('height', 1)
-                width2 = attrs2.get('width', 1) 
-                height2 = attrs2.get('height', 1)
+                width1 = attrs1.get('width', 1.0)
+                height1 = attrs1.get('height', 1.0)
+                width2 = attrs2.get('width', 1.0) 
+                height2 = attrs2.get('height', 1.0)
                 
                 if pos1[2] in [1, 3]:  # 90° or 270°
                     width1, height1 = height1, width1
