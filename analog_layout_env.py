@@ -8,8 +8,10 @@ except ImportError:
     USING_GYMNASIUM = False
 import numpy as np
 import networkx as nx
+import time
 from typing import Dict, Tuple, Optional, List, Any
 from enum import Enum
+from curriculum_config import CurriculumManager, get_metrics_for_stage
 
 
 class SpatialRelation(Enum):
@@ -430,3 +432,357 @@ class AnalogLayoutEnv(gym.Env):
         print(f"Placed components: {np.sum(self.placed_mask[:self.num_components])}/{self.num_components}")
         for i, (comp_id, (x, y, orient)) in enumerate(self.component_positions.items()):
             print(f"Component {comp_id}: ({x}, {y}) orientation {orient * 90}°")
+
+
+class EnhancedAnalogLayoutEnv(AnalogLayoutEnv):
+    """
+    Enhanced analog layout environment with curriculum learning and advanced metrics integration.
+    
+    Implements a 4-stage curriculum that gradually introduces sophisticated metrics into training
+    rewards, improving layout quality while maintaining training stability.
+    """
+    
+    def __init__(self, 
+                 grid_size: int = 15,
+                 max_components: int = 6,
+                 enable_action_masking: bool = True,
+                 curriculum_enabled: bool = True,
+                 manual_stage: int = None,
+                 metric_calculation_interval: int = 3,
+                 curriculum_config: Dict[str, Any] = None):
+        """Initialize enhanced environment with curriculum learning.
+        
+        Args:
+            grid_size: Size of the layout grid
+            max_components: Maximum number of components  
+            enable_action_masking: Enable action masking
+            curriculum_enabled: Enable curriculum learning
+            manual_stage: Force specific curriculum stage (1-4)
+            metric_calculation_interval: Calculate expensive metrics every N steps
+            curriculum_config: Optional curriculum configuration overrides
+        """
+        # Initialize curriculum attributes BEFORE calling parent constructor
+        # (because parent calls reset() which needs these attributes)
+        self.curriculum_enabled = curriculum_enabled
+        self.curriculum_manager = None
+        if curriculum_enabled:
+            self.curriculum_manager = CurriculumManager(
+                manual_stage=manual_stage,
+                episode_window=curriculum_config.get("episode_window", 1000) if curriculum_config else 1000
+            )
+        
+        # Initialize other attributes
+        self.metric_calculation_interval = metric_calculation_interval
+        self.step_count = 0
+        self.cached_metrics = {}
+        self.last_metric_calculation = -1
+        self.episode_count = 0
+        self.current_episode_success = False
+        self._metrics_calculator = None
+        self._layout_grid = None
+        
+        # Now call parent constructor
+        super().__init__(grid_size, max_components, enable_action_masking)
+        
+        print(f"Enhanced environment initialized:")
+        print(f"  Curriculum enabled: {curriculum_enabled}")
+        if curriculum_enabled and manual_stage:
+            print(f"  Manual stage override: {manual_stage}")
+        print(f"  Metric calculation interval: {metric_calculation_interval}")
+    
+    def _get_metrics_calculator(self):
+        """Lazy initialization of metrics calculator."""
+        if self._metrics_calculator is None:
+            try:
+                from metrics.metrics import MetricsCalculator
+                self._metrics_calculator = MetricsCalculator()
+            except ImportError as e:
+                print(f"Warning: Could not import metrics system: {e}")
+                print("Falling back to simple reward calculation")
+                return None
+        return self._metrics_calculator
+    
+    def _get_layout_grid(self):
+        """Convert current state to LayoutGrid for metrics calculation."""
+        if self._layout_grid is None:
+            try:
+                from env.layout_grid import LayoutGrid, ComponentType as GridComponentType
+                from env.layout_grid import ComponentPlacement
+                
+                # Create layout grid
+                grid = LayoutGrid(self.grid_size, self.grid_size)
+                
+                # Add placed components
+                for comp_id, (x, y, orientation) in self.component_positions.items():
+                    if comp_id in self.circuit.nodes:
+                        attrs = self.circuit.nodes[comp_id]
+                        width = attrs.get('width', 1.0)
+                        height = attrs.get('height', 1.0)
+                        
+                        # Adjust for orientation
+                        if orientation in [1, 3]:  # 90° or 270°
+                            width, height = height, width
+                        
+                        # Map component type
+                        comp_type_val = attrs.get('component_type', 0)
+                        if comp_type_val == 0:
+                            comp_type = GridComponentType.NMOS
+                        elif comp_type_val == 1:
+                            comp_type = GridComponentType.PMOS
+                        elif comp_type_val == 2:
+                            comp_type = GridComponentType.RESISTOR
+                        elif comp_type_val == 3:
+                            comp_type = GridComponentType.CAPACITOR
+                        else:
+                            comp_type = GridComponentType.OTHER
+                        
+                        placement = ComponentPlacement(
+                            component_id=comp_id,
+                            x=int(x),
+                            y=int(y),
+                            width=int(max(1, width)),
+                            height=int(max(1, height)),
+                            orientation=orientation,
+                            component_type=comp_type
+                        )
+                        
+                        grid.place_component(placement)
+                
+                self._layout_grid = grid
+                return grid
+                
+            except ImportError as e:
+                print(f"Warning: Could not import layout grid: {e}")
+                return None
+        
+        return self._layout_grid
+    
+    def reset(self, *, seed: Optional[int] = None, circuit_graph: Optional[nx.Graph] = None, **kwargs):
+        """Reset environment and update curriculum state."""
+        # Reset parent environment
+        result = super().reset(seed=seed, circuit_graph=circuit_graph, **kwargs)
+        
+        # Reset curriculum tracking
+        self.step_count = 0
+        self.cached_metrics = {}
+        self.last_metric_calculation = -1
+        self.current_episode_success = False
+        self._layout_grid = None  # Clear layout grid cache
+        
+        # Update episode count for curriculum
+        if self.curriculum_enabled and self.curriculum_manager:
+            self.episode_count += 1
+            
+        return result
+    
+    def step(self, action):
+        """Step with enhanced reward calculation using curriculum metrics."""
+        self.step_count += 1
+        
+        # Call parent step method (handle both gym/gymnasium formats)
+        parent_result = super().step(action)
+        
+        if len(parent_result) == 5:  # Gymnasium format (obs, reward, terminated, truncated, info)
+            obs, base_reward, terminated, truncated, info = parent_result
+            done = terminated or truncated
+        else:  # Gym format (obs, reward, done, info)
+            obs, base_reward, done, info = parent_result
+        
+        # Calculate enhanced reward if curriculum is enabled
+        if self.curriculum_enabled and self.curriculum_manager:
+            enhanced_reward = self._calculate_enhanced_reward(base_reward, done, info)
+            
+            # Update curriculum manager on episode completion
+            if done:
+                self.current_episode_success = info.get('success', False) or self._check_episode_success()
+                self.curriculum_manager.update_episode(
+                    episode=self.episode_count,
+                    success=self.current_episode_success,
+                    total_reward=enhanced_reward
+                )
+                
+                # Add curriculum info to info dict
+                info['curriculum_status'] = self.curriculum_manager.get_curriculum_status()
+            
+            # Return in same format as parent
+            if len(parent_result) == 5:
+                return obs, enhanced_reward, terminated, truncated, info
+            else:
+                return obs, enhanced_reward, done, info
+        else:
+            return parent_result
+    
+    def _check_episode_success(self) -> bool:
+        """Check if current episode should be considered successful."""
+        if self.circuit is None:
+            return False
+        
+        # Success = all components placed
+        return len(self.component_positions) >= self.num_components
+    
+    def _calculate_enhanced_reward(self, base_reward: Dict[str, float], 
+                                   done: bool, info: Dict[str, Any]) -> float:
+        """Calculate enhanced reward using curriculum-appropriate metrics.
+        
+        Args:
+            base_reward: Original simple reward components
+            done: Whether episode is done
+            info: Additional information
+            
+        Returns:
+            Enhanced reward value combining simple and advanced metrics
+        """
+        if not self.curriculum_manager:
+            # Fallback to simple reward
+            return sum(base_reward.values())
+        
+        current_stage = self.curriculum_manager.get_current_stage(self.episode_count)
+        simple_weight, advanced_weight = self.curriculum_manager.get_reward_weights(current_stage)
+        
+        # Calculate simple reward component
+        if isinstance(base_reward, dict):
+            simple_reward = sum(base_reward.values()) * simple_weight
+        else:
+            simple_reward = base_reward * simple_weight
+        
+        # Calculate advanced reward component (if weight > 0)
+        advanced_reward = 0.0
+        if advanced_weight > 0.0:
+            advanced_reward = self._calculate_stage_metrics(current_stage) * advanced_weight
+        
+        total_reward = simple_reward + advanced_reward
+        
+        # Add curriculum info to info for logging (not base_reward since it might be a float)
+        info.update({
+            'curriculum_stage': float(current_stage),
+            'simple_component': simple_reward,
+            'advanced_component': advanced_reward,
+            'curriculum_total': total_reward
+        })
+        
+        return total_reward
+    
+    def _calculate_stage_metrics(self, stage: int) -> float:
+        """Calculate metrics appropriate for the current curriculum stage.
+        
+        Args:
+            stage: Current curriculum stage (1-4)
+            
+        Returns:
+            Weighted metric score for the stage
+        """
+        # Performance optimization: only calculate expensive metrics periodically
+        if (self.step_count - self.last_metric_calculation) < self.metric_calculation_interval:
+            return self.cached_metrics.get('stage_score', 0.0)
+        
+        try:
+            # Use lightweight metrics for better performance
+            from metrics.lightweight_metrics import get_lightweight_calculator
+            
+            lightweight_calc = get_lightweight_calculator()
+            metrics = lightweight_calc.calculate_stage_metrics(
+                stage=stage,
+                component_positions=self.component_positions,
+                circuit=self.circuit,
+                grid_size=self.grid_size,
+                step_count=self.step_count
+            )
+            
+            # Cache results
+            self.cached_metrics = metrics
+            self.last_metric_calculation = self.step_count
+            
+            return metrics.get('stage_score', 0.0)
+            
+        except Exception as e:
+            print(f"Warning: Error calculating lightweight metrics: {e}")
+            return self._calculate_simple_metrics(stage)
+    
+    def _extract_stage_score(self, stage: int, metrics) -> float:
+        """Extract appropriate score for curriculum stage from full metrics.
+        
+        Args:
+            stage: Curriculum stage (1-4)
+            metrics: LayoutMetrics object with all calculated metrics
+            
+        Returns:
+            Weighted score for the stage
+        """
+        if stage == 1:
+            # Stage 1: Basic placement
+            return (metrics.completion * 2.0 + 
+                   metrics.row_consistency * 1.0) / 3.0
+                   
+        elif stage == 2:
+            # Stage 2: Quality introduction
+            return (metrics.completion * 1.5 +
+                   metrics.row_consistency * 1.0 +
+                   metrics.symmetry_score * 1.5 +
+                   metrics.abutment_alignment * 1.0) / 5.0
+                   
+        elif stage == 3:
+            # Stage 3: Routing awareness
+            crossings_penalty = max(0, 1.0 - metrics.crossings / 10.0)  # Penalty for crossings
+            return (metrics.completion * 1.0 +
+                   metrics.row_consistency * 0.5 +
+                   metrics.symmetry_score * 1.0 +
+                   metrics.abutment_alignment * 1.0 +
+                   metrics.rail_alignment * 1.5 +
+                   (1.0 - min(1.0, metrics.avg_connection_distance / 10.0)) * 1.0 +
+                   crossings_penalty * 1.0) / 7.0
+                   
+        else:  # Stage 4: Full optimization
+            # Use the full analog score
+            return metrics.analog_score
+    
+    def _calculate_simple_metrics(self, stage: int) -> float:
+        """Fallback simple metrics calculation when advanced metrics unavailable.
+        
+        Args:
+            stage: Curriculum stage
+            
+        Returns:
+            Simple metric score
+        """
+        if self.circuit is None:
+            return 0.0
+        
+        # Basic completion metric
+        completion = len(self.component_positions) / max(1, self.num_components)
+        
+        if stage == 1:
+            return completion
+        elif stage <= 3:
+            # Add simple compactness
+            if len(self.component_positions) >= 2:
+                positions = list(self.component_positions.values())
+                xs = [pos[0] for pos in positions]
+                ys = [pos[1] for pos in positions]
+                
+                width = max(xs) - min(xs) + 1
+                height = max(ys) - min(ys) + 1
+                compactness = 1.0 / (1.0 + width * height / len(positions))
+                
+                return (completion + compactness) / 2.0
+            else:
+                return completion
+        else:  # Stage 4
+            return completion * 0.8  # More demanding for final stage
+    
+    def get_curriculum_info(self) -> Dict[str, Any]:
+        """Get current curriculum learning information for monitoring."""
+        if not self.curriculum_enabled or not self.curriculum_manager:
+            return {"curriculum_enabled": False}
+        
+        return self.curriculum_manager.get_curriculum_status()
+    
+    def force_curriculum_stage(self, stage: int):
+        """Force curriculum to specific stage (for debugging/testing)."""
+        if self.curriculum_manager:
+            self.curriculum_manager.manual_stage = stage
+            print(f"Forced curriculum to stage {stage}")
+    
+    def disable_curriculum(self):
+        """Disable curriculum learning (fallback to simple rewards)."""
+        self.curriculum_enabled = False
+        print("Curriculum learning disabled")

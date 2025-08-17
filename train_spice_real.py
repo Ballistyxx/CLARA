@@ -18,9 +18,10 @@ from datetime import datetime
 import random
 from pathlib import Path
 
-from analog_layout_env import AnalogLayoutEnv
+from analog_layout_env import AnalogLayoutEnv, EnhancedAnalogLayoutEnv
 from reward import AdaptiveRewardCalculator
 from enhanced_spice_parser import EnhancedSpiceParser, parse_multiple_spice_files
+from curriculum_config import create_curriculum_manager
 import networkx as nx
 
 
@@ -174,6 +175,52 @@ class AnalogLayoutSpiceEnvWrapper(AnalogLayoutEnv):
         if 'enable_action_masking' not in kwargs:
             kwargs['enable_action_masking'] = True
         super().__init__(*args, **kwargs)
+
+
+class EnhancedAnalogLayoutSpiceEnvWrapper(EnhancedAnalogLayoutEnv):
+    """Enhanced environment wrapper with curriculum learning for real SPICE circuits."""
+    
+    def __init__(self, circuit_manager: SpiceCircuitManager, 
+                 curriculum_config: Dict[str, Any] = None, 
+                 *args, **kwargs):
+        self.circuit_manager = circuit_manager
+        self.episode_count = 0
+        self.current_circuit_name = "unknown"
+        
+        # Enable action masking by default for SPICE circuits
+        if 'enable_action_masking' not in kwargs:
+            kwargs['enable_action_masking'] = True
+            
+        # Pass curriculum config appropriately
+        if curriculum_config:
+            # Extract relevant parameters for the environment
+            kwargs['curriculum_enabled'] = curriculum_config.get('curriculum_enabled', True)
+            kwargs['manual_stage'] = curriculum_config.get('manual_stage', None)
+            kwargs['metric_calculation_interval'] = curriculum_config.get('metric_calculation_interval', 3)
+            kwargs['curriculum_config'] = curriculum_config
+            
+        super().__init__(*args, **kwargs)
+        
+        print(f"Enhanced SPICE environment initialized:")
+        print(f"  Available circuits: {len(circuit_manager.suitable_circuits)}")
+        if self.curriculum_enabled:
+            print(f"  Curriculum learning: ENABLED")
+        else:
+            print(f"  Curriculum learning: DISABLED")
+    
+    def reset(self, **kwargs):
+        """Reset environment with a random SPICE circuit."""
+        self.episode_count += 1
+        
+        # Get a random real circuit instead of generating one
+        if 'circuit_graph' not in kwargs:
+            circuit_graph = self.circuit_manager.get_random_circuit()
+            kwargs['circuit_graph'] = circuit_graph
+            
+            # Store circuit info for logging
+            self.current_circuit_name = f"spice_circuit_{self.episode_count}"
+        
+        return super().reset(**kwargs)
     
     def reset(self, **kwargs):
         """Reset environment with a random SPICE circuit."""
@@ -283,15 +330,83 @@ class SpiceTensorBoardCallback(BaseCallback):
         return True
 
 
-def setup_spice_training_environment(config: Dict[str, Any], circuit_manager: SpiceCircuitManager) -> VecEnv:
-    """Setup the training environment with SPICE circuits."""
+class CurriculumMonitoringCallback(BaseCallback):
+    """Callback for monitoring curriculum learning progression."""
+    
+    def __init__(self, log_interval: int = 100, verbose=0):
+        super().__init__(verbose)
+        self.log_interval = log_interval
+        self.last_curriculum_log = 0
+        
+    def _on_step(self) -> bool:
+        # Log curriculum status periodically
+        if self.n_calls - self.last_curriculum_log >= self.log_interval:
+            self.last_curriculum_log = self.n_calls
+            
+            # Get curriculum info from first environment
+            for env_idx in range(len(self.training_env.envs)):
+                env = self.training_env.envs[env_idx]
+                if hasattr(env, 'get_curriculum_info'):
+                    curriculum_info = env.get_curriculum_info()
+                    
+                    if curriculum_info.get('curriculum_enabled', False):
+                        # Log curriculum metrics
+                        self.logger.record("curriculum/stage", curriculum_info['current_stage'])
+                        self.logger.record("curriculum/episode_count", curriculum_info['episode_count'])
+                        self.logger.record("curriculum/simple_weight", curriculum_info['simple_weight'])
+                        self.logger.record("curriculum/advanced_weight", curriculum_info['advanced_weight'])
+                        self.logger.record("curriculum/success_rate", curriculum_info['recent_success_rate'])
+                        self.logger.record("curriculum/can_advance", float(curriculum_info['can_advance']))
+                        
+                        # Log stage performance
+                        stage_perf = curriculum_info['stage_performance']
+                        self.logger.record("curriculum/stage_episodes", stage_perf['episodes'])
+                        self.logger.record("curriculum/stage_successes", stage_perf['successes'])
+                        self.logger.record("curriculum/stage_avg_reward", stage_perf['avg_reward'])
+                        
+                        # Log stage transitions
+                        transitions = curriculum_info['stage_transitions']
+                        self.logger.record("curriculum/total_transitions", len(transitions))
+                        
+                        if self.verbose >= 1 and curriculum_info['can_advance']:
+                            print(f"Curriculum ready to advance from Stage {curriculum_info['current_stage']}")
+                    
+                    break  # Only log from first environment
+        
+        return True
+
+
+def setup_spice_training_environment(config: Dict[str, Any], 
+                                     circuit_manager: SpiceCircuitManager, 
+                                     use_curriculum: bool = True) -> VecEnv:
+    """Setup the training environment with SPICE circuits.
+    
+    Args:
+        config: Training configuration
+        circuit_manager: Manager for SPICE circuits
+        use_curriculum: Whether to use enhanced environment with curriculum learning
+        
+    Returns:
+        Vectorized environment
+    """
     
     def make_env():
-        return AnalogLayoutSpiceEnvWrapper(
-            circuit_manager=circuit_manager,
-            grid_size=config['grid_size'],
-            max_components=config['max_components']
-        )
+        if use_curriculum:
+            # Use enhanced environment with curriculum learning
+            curriculum_config = config.get('curriculum', {})
+            return EnhancedAnalogLayoutSpiceEnvWrapper(
+                circuit_manager=circuit_manager,
+                curriculum_config=curriculum_config,
+                grid_size=config['grid_size'],
+                max_components=config['max_components']
+            )
+        else:
+            # Use basic environment
+            return AnalogLayoutSpiceEnvWrapper(
+                circuit_manager=circuit_manager,
+                grid_size=config['grid_size'],
+                max_components=config['max_components']
+            )
     
     # Create vectorized environment
     env = make_vec_env(make_env, n_envs=config['n_envs'])
@@ -302,7 +417,7 @@ def setup_spice_training_environment(config: Dict[str, Any], circuit_manager: Sp
 def main():
     """Main training function with SPICE circuit integration."""
     
-    # Configuration - optimized for real circuits
+    # Configuration - optimized for real circuits with curriculum learning
     config = {
         'grid_size': 20,      # Adequate size for real circuits
         'max_components': 100,  # Support larger real circuits
@@ -318,7 +433,15 @@ def main():
         'ent_coef': 0.01,
         'vf_coef': 0.25,
         'max_grad_norm': 0.5,
-        'seed': 42
+        'seed': 42,
+        
+        # Curriculum learning configuration
+        'curriculum': {
+            'curriculum_enabled': True,
+            'manual_stage': None,  # None for automatic progression
+            'metric_calculation_interval': 3,  # Calculate metrics every 3 steps
+            'episode_window': 1000  # Window for success rate calculation
+        }
     }
     
     print("CLARA Training with Real SPICE Circuits")
@@ -352,10 +475,12 @@ def main():
     
     # Create training environment with SPICE circuits
     print(f"\nSetting up training environment...")
-    env = setup_spice_training_environment(config, circuit_manager)
+    # Create training environment with curriculum learning
+    use_curriculum = config.get('curriculum', {}).get('curriculum_enabled', True)
+    env = setup_spice_training_environment(config, circuit_manager, use_curriculum=use_curriculum)
     
-    # Create evaluation environment
-    eval_env = setup_spice_training_environment({**config, 'n_envs': 1}, circuit_manager)
+    # Create evaluation environment (without curriculum for consistent evaluation)
+    eval_env = setup_spice_training_environment({**config, 'n_envs': 1}, circuit_manager, use_curriculum=False)
     
     # Initialize PPO
     print(f"Initializing PPO model...")
@@ -390,6 +515,12 @@ def main():
     # Custom callback for SPICE metrics
     tb_callback = SpiceTensorBoardCallback(circuit_manager, verbose=1)
     callbacks.append(tb_callback)
+    
+    # Curriculum monitoring callback (if curriculum is enabled)
+    if use_curriculum:
+        curriculum_callback = CurriculumMonitoringCallback(log_interval=500, verbose=1)
+        callbacks.append(curriculum_callback)
+        print("Added curriculum monitoring callback")
     
     # Checkpoint callback
     checkpoint_callback = CheckpointCallback(

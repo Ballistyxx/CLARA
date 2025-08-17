@@ -2,6 +2,31 @@
 
 CLARA is a reinforcement learning system that learns to automatically place analog IC components with industry-standard constraints and patterns. The system features **PFET/NFET row discipline**, advanced **symmetry patterns** (mirroring, common-centroid, interdigitation), and **analog-friendly optimization** for real-world circuit layout.
 
+## Get Started
+
+Source the venv:
+```bash
+source venvCLARA/bin/activate
+```
+
+To train the model:
+```bash
+python train_spice_real.py
+```
+
+To run the model:
+```bash
+cp ./logs/clara_spice_<timestamp>/best_model.zip ./logs
+```
+
+Then, 
+
+```bash
+python run_model.py --circuit PFD.spice --visualize --episodes 20 --grid-size 64
+```
+**note that for now, all .spice files must be placed in the './data/netlists/programmable_pll_subcircuits' directory.**
+
+
 ## Key Features
 
 ### Analog-Friendly Layout Engine

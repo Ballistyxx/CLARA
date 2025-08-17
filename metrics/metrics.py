@@ -3,7 +3,7 @@
 Comprehensive metrics for analog IC layout evaluation.
 Includes symmetry, row consistency, crossings, congestion, perimeter/area, and more.
 """
-
+# TODO: change to cost function
 import numpy as np
 import networkx as nx
 from typing import Dict, List, Tuple, Optional, Any, Set
@@ -349,6 +349,7 @@ class MetricsCalculator:
                 total_pairs += 1
                 
                 # Check for abutment (adjacent with shared edge)
+                # TODO: abutment_score += 1.0/distance
                 if self._check_abutment(p1, p2):
                     abutment_score += 1.0
                 
