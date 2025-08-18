@@ -11,15 +11,15 @@ import wandb
 from datetime import datetime
 
 from analog_layout_env import AnalogLayoutEnv
-from reward import AdaptiveRewardCalculator
+from reward import RewardCalculator
 import networkx as nx
 
 
 class AnalogLayoutEnvWrapper(AnalogLayoutEnv):
-    """Wrapper to integrate adaptive reward calculator."""
+    """Wrapper to integrate fixed reward calculator."""
     
     def __init__(self, *args, **kwargs):
-        self.reward_calculator = AdaptiveRewardCalculator()
+        self.reward_calculator = RewardCalculator(config_path="configs/rewards.yaml")
         self.episode_count = 0
         super().__init__(*args, **kwargs)
     
@@ -65,8 +65,7 @@ class AnalogLayoutEnvWrapper(AnalogLayoutEnv):
     
     def reset(self, **kwargs):
         self.episode_count += 1
-        if hasattr(self, 'reward_calculator'):
-            self.reward_calculator.update_weights_for_episode(self.episode_count)
+        # Note: Using fixed reward weights from YAML (no curriculum learning)
         return super().reset(**kwargs)
 
 

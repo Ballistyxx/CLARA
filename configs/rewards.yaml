@@ -1,0 +1,46 @@
+# configs/rewards.yaml
+# Reward weights for CLARA analog layout training
+# Must match the RewardCalculator implementation
+
+# Base reward weights (used by RewardCalculator)
+base_weights:
+  # Core objectives  
+  completion: 1.0           # Reward for placing all components
+  symmetry: 0.2            # Reward for symmetric placement of matched pairs
+  compactness: 0.45        # Reward for compact bounding box layouts
+  connectivity: 0.0        # Reward for minimizing connection distances
+  device_grouping: 0.0     # NEW: Reward for grouping same device models together
+  
+  # Step rewards/penalties
+  placement_step: 0.1      # Small reward per successful placement
+  
+  # Violation penalties
+  invalid_action: -100.0     # Penalty for invalid actions
+  invalid_placement: -100.5  # Penalty for invalid placements
+
+# # Adaptive weights for curriculum learning (used by AdaptiveRewardCalculator)
+# curriculum_weights:
+#   early_training:          # Progress < 0.3
+#     placement_step: 2.0
+#     symmetry: 0.5
+#     compactness: 2.0
+#     connectivity: 0.5
+    
+    
+#   mid_training:           # 0.3 <= progress < 0.7
+#     placement_step: 1.0
+#     symmetry: 1.5
+#     compactness: 1.5
+#     connectivity: 1.0
+    
+    
+#   late_training:          # Progress >= 0.7
+#     placement_step: 0.5
+#     symmetry: 3.0
+#     compactness: 1.0
+#     connectivity: 2.0
+    
+
+# # Configuration for curriculum learning
+# curriculum_config:
+#   full_curriculum_episodes: 1000  # Episodes to complete full curriculum

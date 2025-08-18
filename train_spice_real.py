@@ -19,8 +19,9 @@ import random
 from pathlib import Path
 
 from analog_layout_env import AnalogLayoutEnv, EnhancedAnalogLayoutEnv
-from reward import AdaptiveRewardCalculator
+from reward import RewardCalculator
 from enhanced_spice_parser import EnhancedSpiceParser, parse_multiple_spice_files
+from curriculum_config import create_curriculum_manager
 from curriculum_config import create_curriculum_manager
 import networkx as nx
 
@@ -168,7 +169,7 @@ class AnalogLayoutSpiceEnvWrapper(AnalogLayoutEnv):
     
     def __init__(self, circuit_manager: SpiceCircuitManager, *args, **kwargs):
         self.circuit_manager = circuit_manager
-        self.reward_calculator = AdaptiveRewardCalculator()
+        self.reward_calculator = RewardCalculator(config_path="configs/rewards.yaml")
         self.episode_count = 0
         self.current_circuit_name = "unknown"
         # Enable action masking by default for SPICE circuits
@@ -234,9 +235,7 @@ class EnhancedAnalogLayoutSpiceEnvWrapper(EnhancedAnalogLayoutEnv):
             # Store circuit info for logging
             self.current_circuit_name = f"spice_circuit_{self.episode_count}"
         
-        # Update reward calculator weights
-        if hasattr(self, 'reward_calculator'):
-            self.reward_calculator.update_weights_for_episode(self.episode_count)
+        # Note: Using fixed reward weights from YAML (no curriculum learning)
         
         return super().reset(**kwargs)
     
@@ -422,7 +421,7 @@ def main():
         'grid_size': 20,      # Adequate size for real circuits
         'max_components': 100,  # Support larger real circuits
         'n_envs': 4,          # Parallel environments
-        'total_timesteps': 200000,  # Longer training for real circuits
+        'total_timesteps': 100000,  # Longer training for real circuits
         'learning_rate': 5e-4,      # Moderate learning rate
         'batch_size': 128,          # Good batch size
         'n_steps': 512,            # Rollout buffer size

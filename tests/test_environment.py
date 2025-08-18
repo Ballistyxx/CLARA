@@ -96,7 +96,7 @@ def test_reward_system():
         }
         
         # Test reward calculation
-        calculator = RewardCalculator()
+        calculator = RewardCalculator(config_path="configs/rewards.yaml")
         total_reward, components = calculator.calculate_total_reward(
             circuit=circuit,
             component_positions=positions,
