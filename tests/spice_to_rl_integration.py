@@ -269,7 +269,7 @@ def main():
     
     # Load SPICE circuits
     circuits = integrator.load_spice_circuits(
-        "/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits"
+        "data/netlists/programmable_pll_subcircuits"
     )
     
     # Analyze circuits

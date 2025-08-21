@@ -32,7 +32,7 @@ def quick_test():
     print("=" * 50)
     
     # Initialize SPICE circuit manager
-    spice_directory = "/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits"
+    spice_directory = "data/netlists/programmable_pll_subcircuits"
     circuit_manager = SpiceCircuitManager(spice_directory)
     
     stats = circuit_manager.get_circuit_stats()

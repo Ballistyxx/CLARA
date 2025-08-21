@@ -105,14 +105,16 @@ class AnalogLayoutVisualizer:
         """Draw a single component on the layout."""
         
         comp_type = component_attrs.get('component_type', 0)
-        width = component_attrs.get('width', 1.0)
-        height = component_attrs.get('height', 1.0)
+        # Get original dimensions from circuit node
+        original_width = component_attrs.get('width', 1.0)
+        original_height = component_attrs.get('height', 1.0)
         matched_comp = component_attrs.get('matched_component', -1)
-        print(f"Component {comp_id}: width={width}, height={height}, attrs={component_attrs}")
         
-        # Adjust dimensions based on orientation
-        if orientation in [1, 3]:  # 90° or 270°
-            width, height = height, width
+        # Don't apply orientation adjustment here - dimensions are already adjusted
+        # during placement in _place_component method before storing in component_positions
+        width, height = original_width, original_height
+        
+        print(f"Component {comp_id}: dimensions=({width}x{height}), orientation={orientation}")
         
         # Base color
         color = self.component_colors.get(comp_type, '#95A5A6')

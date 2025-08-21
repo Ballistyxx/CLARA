@@ -18,8 +18,8 @@ def analyze_action_space_mismatch():
     
     # Test circuits
     test_files = [
-        "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice",
-        "/home/eli/Documents/Internship/CLARA/data/programmable_pll_subcircuits/NAND.spice"
+        "data/netlists/sky130_am_ip__ldo_01v8.spice",
+        "data/programmable_pll_subcircuits/NAND.spice"
     ]
     
     # Environment configurations
@@ -132,7 +132,7 @@ def test_specific_model_on_ldo():
     print("=" * 60)
     
     # Use the connectivity-fixed LDO circuit
-    ldo_file = "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice"
+    ldo_file = "data/netlists/sky130_am_ip__ldo_01v8.spice"
     
     if not Path(ldo_file).exists():
         print(f"LDO file not found: {ldo_file}")

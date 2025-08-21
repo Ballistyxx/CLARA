@@ -88,7 +88,7 @@ def test_ldo_with_intelligent_masking():
     print("LDO CIRCUIT TEST WITH INTELLIGENT ACTION MASKING")
     print("=" * 60)
     
-    ldo_file = "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice"
+    ldo_file = "data/netlists/sky130_am_ip__ldo_01v8.spice"
     
     if not Path(ldo_file).exists():
         print(f"File not found: {ldo_file}")
@@ -180,7 +180,7 @@ def analyze_placement_strategies():
     print(f"\nPLACEMENT STRATEGY ANALYSIS")
     print("=" * 60)
     
-    ldo_file = "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice"
+    ldo_file = "data/netlists/sky130_am_ip__ldo_01v8.spice"
     parser = EnhancedSpiceParser()
     circuit_data = parser.parse_spice_file(ldo_file)
     

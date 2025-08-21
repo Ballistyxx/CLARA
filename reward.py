@@ -40,14 +40,21 @@ def load_reward_config(config_path: str = "configs/rewards.yaml") -> Dict[str, a
 @dataclass
 class RewardComponents:
     """Container for different reward components."""
+    # Positive rewards
     symmetry: float = 0.0
     compactness: float = 0.0
     connectivity: float = 0.0
     completion: float = 0.0
     placement_step: float = 0.0
-    invalid_action: float = 0.0
-    invalid_placement: float = 0.0
-    device_grouping: float = 0.0  # New: reward for grouping same device models
+    device_grouping: float = 0.0
+    
+    # Graduated penalties (replace binary invalid_action/invalid_placement)
+    overlap_severity: float = 0.0      # Proportional to overlap area
+    bounds_violation: float = 0.0      # Proportional to out-of-bounds distance
+    spacing_violation: float = 0.0     # Proportional to spacing violations
+    
+    # Learning signals
+    near_miss_bonus: float = 0.0       # Reward for almost-valid placements
 
 
 class RewardCalculator:
@@ -70,37 +77,65 @@ class RewardCalculator:
                              grid_size: int,
                              num_components: int,
                              placed_count: int,
+                             attempted_position: Tuple[int, int, int] = None,
                              is_valid_action: bool = True,
                              is_valid_placement: bool = True) -> Tuple[float, RewardComponents]:
-        """Calculate total reward and return breakdown."""
+        """Calculate total reward with graduated penalties."""
         
         components = RewardComponents()
         
-        # Penalty for invalid actions
-        if not is_valid_action:
-            components.invalid_action = self.weights['invalid_action']
-            return sum([getattr(components, attr) * self.weights.get(attr, 1.0) 
-                       for attr in components.__dict__.keys()]), components
-        
-        if not is_valid_placement:
-            components.invalid_placement = self.weights['invalid_placement']
-            return sum([getattr(components, attr) * self.weights.get(attr, 1.0) 
-                       for attr in components.__dict__.keys()]), components
-        
-        # Positive rewards
-        components.placement_step = self.weights['placement_step']
+        # Always calculate positive rewards (encourage good aspects even with violations)
+        components.placement_step = self.weights.get('placement_step', 0.0)
         components.symmetry = self._calculate_symmetry_reward(circuit, component_positions)
         components.compactness = self._calculate_compactness_reward(component_positions, grid_size)
         components.connectivity = self._calculate_connectivity_reward(circuit, component_positions)
         components.device_grouping = self._calculate_device_grouping_reward(circuit, component_positions)
         
+        # Calculate graduated penalties
+        components.overlap_severity = self._calculate_overlap_penalty(component_positions, circuit)
+        components.bounds_violation = self._calculate_bounds_violation_penalty(
+            component_positions, circuit, grid_size)
+        components.spacing_violation = self._calculate_spacing_violation_penalty(component_positions)
+        
+        # Learning signals
+        if attempted_position:
+            components.near_miss_bonus = self._calculate_near_miss_bonus(
+                attempted_position, component_positions, circuit, grid_size)
+        
         # Completion bonus
         if placed_count == num_components:
-            components.completion = self.weights['completion']
+            components.completion = self.weights.get('completion', 0.0)
         
         # Calculate weighted total
-        total_reward = sum([getattr(components, attr) * self.weights.get(attr, 1.0) 
+        total_reward = sum([getattr(components, attr) * self.weights.get(attr, 0.0) 
                            for attr in components.__dict__.keys()])
+        
+        # Enhanced diagnostic printing
+        print(f"\n=== GRADUATED REWARD CALCULATION ===")
+        print(f"Positive Rewards:")
+        for attr in ['symmetry', 'compactness', 'connectivity', 'device_grouping', 'placement_step', 'completion']:
+            raw_score = getattr(components, attr)
+            weight = self.weights.get(attr, 0.0)
+            weighted = raw_score * weight
+            if raw_score != 0.0:
+                print(f"  {attr:15s}: {raw_score:8.3f} * {weight:6.2f} = {weighted:8.3f}")
+        
+        print(f"Constraint Penalties:")
+        for attr in ['overlap_severity', 'bounds_violation', 'spacing_violation']:
+            raw_score = getattr(components, attr)
+            weight = self.weights.get(attr, 0.0)
+            weighted = raw_score * weight
+            if raw_score != 0.0:
+                print(f"  {attr:15s}: {raw_score:8.3f} * {weight:6.2f} = {weighted:8.3f}")
+        
+        print(f"Learning Signals:")
+        if components.near_miss_bonus != 0.0:
+            weight = self.weights.get('near_miss_bonus', 0.0)
+            weighted = components.near_miss_bonus * weight
+            print(f"  near_miss_bonus  : {components.near_miss_bonus:8.3f} * {weight:6.2f} = {weighted:8.3f}")
+        
+        print(f"FINAL TOTAL REWARD: {total_reward:.3f}")
+        print(f"=== END GRADUATED REWARD DEBUG ===\n")
         
         return total_reward, components
     
@@ -295,6 +330,138 @@ class RewardCalculator:
         # Normalize by total number of comparisons
         if total_comparisons > 0:
             return total_grouping_score / len(device_groups)  # Average per device type
+        
+        return 0.0
+    
+    def _get_component_dimensions(self, comp_id: int, circuit: nx.Graph, orientation: int) -> Tuple[int, int]:
+        """Get component width and height based on orientation."""
+        if comp_id not in circuit.nodes():
+            return (1, 1)  # Default size
+        
+        node_attrs = circuit.nodes[comp_id]
+        base_width = int(node_attrs.get('width', 1))
+        base_height = int(node_attrs.get('height', 1))
+        
+        # Swap dimensions for rotated orientations
+        if orientation in [1, 3]:  # 90° or 270° rotation
+            return (base_height, base_width)
+        return (base_width, base_height)
+    
+    def _calculate_rectangle_overlap(self, rect1: Tuple[int, int, int, int], 
+                                   rect2: Tuple[int, int, int, int]) -> float:
+        """Calculate overlap area between two rectangles."""
+        x1, y1, w1, h1 = rect1
+        x2, y2, w2, h2 = rect2
+        
+        # Calculate intersection
+        left = max(x1, x2)
+        right = min(x1 + w1, x2 + w2)
+        top = max(y1, y2)
+        bottom = min(y1 + h1, y2 + h2)
+        
+        if left < right and top < bottom:
+            return (right - left) * (bottom - top)
+        return 0.0
+    
+    def _calculate_overlap_penalty(self, 
+                                  component_positions: Dict[int, Tuple[int, int, int]],
+                                  circuit: nx.Graph) -> float:
+        """Calculate penalty based on component overlap severity."""
+        if len(component_positions) < 2:
+            return 0.0
+        
+        total_overlap_area = 0.0
+        components = list(component_positions.items())
+        
+        for i in range(len(components)):
+            for j in range(i + 1, len(components)):
+                comp1_id, (x1, y1, o1) = components[i]
+                comp2_id, (x2, y2, o2) = components[j]
+                
+                w1, h1 = self._get_component_dimensions(comp1_id, circuit, o1)
+                w2, h2 = self._get_component_dimensions(comp2_id, circuit, o2)
+                
+                overlap_area = self._calculate_rectangle_overlap(
+                    (x1, y1, w1, h1), (x2, y2, w2, h2)
+                )
+                total_overlap_area += overlap_area
+        
+        return total_overlap_area
+    
+    def _calculate_bounds_violation_penalty(self,
+                                           component_positions: Dict[int, Tuple[int, int, int]],
+                                           circuit: nx.Graph,
+                                           grid_size: int) -> float:
+        """Calculate penalty for components placed out of bounds."""
+        total_violation = 0.0
+        
+        for comp_id, (x, y, orientation) in component_positions.items():
+            w, h = self._get_component_dimensions(comp_id, circuit, orientation)
+            
+            # Calculate how far out of bounds (if any)
+            violation_x = max(0, (x + w) - grid_size) + max(0, -x)
+            violation_y = max(0, (y + h) - grid_size) + max(0, -y)
+            
+            total_violation += violation_x + violation_y
+        
+        return total_violation
+    
+    def _calculate_spacing_violation_penalty(self,
+                                           component_positions: Dict[int, Tuple[int, int, int]]) -> float:
+        """Calculate penalty for components placed too close together."""
+        if len(component_positions) < 2:
+            return 0.0
+        
+        violation_count = 0.0
+        components = list(component_positions.items())
+        
+        for i in range(len(components)):
+            for j in range(i + 1, len(components)):
+                comp1_id, (x1, y1, o1) = components[i]
+                comp2_id, (x2, y2, o2) = components[j]
+                
+                # Manhattan distance between component centers
+                distance = abs(x1 - x2) + abs(y1 - y2)
+                
+                # Violation if too close (less than minimum spacing)
+                min_spacing = 1  # Minimum 1 grid unit spacing
+                if distance < min_spacing:
+                    violation_count += (min_spacing - distance)
+        
+        return violation_count
+    
+    def _calculate_near_miss_bonus(self,
+                                  attempted_position: Tuple[int, int, int],
+                                  component_positions: Dict[int, Tuple[int, int, int]],
+                                  circuit: nx.Graph,
+                                  grid_size: int) -> float:
+        """Reward attempts that are close to being valid."""
+        if attempted_position is None:
+            return 0.0
+            
+        x, y, orientation = attempted_position
+        
+        # Check if small adjustments would reduce violations
+        current_violations = (
+            self._calculate_overlap_penalty({-1: attempted_position}, circuit) +
+            self._calculate_bounds_violation_penalty({-1: attempted_position}, circuit, grid_size)
+        )
+        
+        # If current position has violations, check if nearby positions are better
+        if current_violations > 0:
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    if dx == 0 and dy == 0:
+                        continue
+                    
+                    test_pos = (x + dx, y + dy, orientation)
+                    test_violations = (
+                        self._calculate_overlap_penalty({-1: test_pos}, circuit) +
+                        self._calculate_bounds_violation_penalty({-1: test_pos}, circuit, grid_size)
+                    )
+                    
+                    if test_violations < current_violations:
+                        return 1.0  # Near miss found
         
         return 0.0
     

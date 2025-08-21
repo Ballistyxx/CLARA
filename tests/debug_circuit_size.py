@@ -16,7 +16,7 @@ def debug_circuit_flow():
     
     # 1. Load circuit manager
     print("1. Loading SPICE circuit manager...")
-    circuit_manager = SpiceCircuitManager('/home/eli/Documents/Internship/CLARA/data/netlists')
+    circuit_manager = SpiceCircuitManager('data/netlists')
     
     # 2. Get specific circuit
     print("2. Getting LDO circuit...")

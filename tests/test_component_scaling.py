@@ -61,7 +61,7 @@ def test_scaling_improvements():
     print("COMPONENT SCALING TEST")
     print("=" * 50)
     
-    ldo_file = "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice"
+    ldo_file = "data/netlists/sky130_am_ip__ldo_01v8.spice"
     
     if not Path(ldo_file).exists():
         print(f"File not found: {ldo_file}")

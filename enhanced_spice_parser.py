@@ -590,7 +590,7 @@ def parse_multiple_spice_files(directory: str) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     # Test the parser
-    test_file = "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice"
+    test_file = "data/netlists/sky130_am_ip__ldo_01v8.spice"
     
     parser = EnhancedSpiceParser()
     result = parser.parse_spice_file(test_file)

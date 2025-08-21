@@ -434,7 +434,7 @@ def main():
     parser.add_argument('--circuit', '-c', type=str, default=None,
                        help='Specific SPICE circuit name to test (e.g., "NAND.spice")')
     parser.add_argument('--spice-dir', type=str, 
-                       default='/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits',
+                       default='data/netlists/programmable_pll_subcircuits',
                        help='Directory containing SPICE files')
     parser.add_argument('--sampling-strategy', type=str, default='diverse',
                        choices=['diverse', 'connected', 'random'],

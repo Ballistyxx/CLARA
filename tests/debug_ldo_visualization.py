@@ -14,7 +14,7 @@ def debug_ldo_component_sizes():
     print("🔍 DEBUGGING LDO COMPONENT SIZES")
     print("=" * 50)
     
-    ldo_file = "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice"
+    ldo_file = "data/netlists/sky130_am_ip__ldo_01v8.spice"
     
     if not Path(ldo_file).exists():
         print(f"❌ File not found: {ldo_file}")
@@ -130,7 +130,7 @@ XR2 N5 VOUT resistor ;CLARA override-size mx=2 my=1
 .ends demo_sized_circuit
 """
     
-    with open("/home/eli/Documents/Internship/CLARA/demo_sized_circuit.spice", 'w') as f:
+    with open("/demo_sized_circuit.spice", 'w') as f:
         f.write(demo_circuit)
     
     print(f"\n📄 Created demo_sized_circuit.spice with explicit component sizing")

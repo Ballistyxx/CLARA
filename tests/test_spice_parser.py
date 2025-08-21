@@ -92,7 +92,7 @@ def test_single_file():
     print("TESTING SINGLE FILE PARSING")
     print("=" * 60)
     
-    test_file = "/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits/INV_1.spice"
+    test_file = "data/netlists/programmable_pll_subcircuits/INV_1.spice"
     
     if not Path(test_file).exists():
         print(f"Test file not found: {test_file}")
@@ -137,7 +137,7 @@ def test_multiple_files():
     print("\n\nTESTING MULTIPLE FILE PARSING")
     print("=" * 60)
     
-    directory = "/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits"
+    directory = "data/netlists/programmable_pll_subcircuits"
     
     results = parse_multiple_spice_files(directory)
     
@@ -171,7 +171,7 @@ def demonstrate_multiplier_handling():
     print("=" * 60)
     
     # Test with a file that has multiplier values
-    test_file = "/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits/INV_1.spice"
+    test_file = "data/netlists/programmable_pll_subcircuits/INV_1.spice"
     
     parser = EnhancedSpiceParser()
     

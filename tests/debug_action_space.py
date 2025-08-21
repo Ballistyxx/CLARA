@@ -55,7 +55,7 @@ def test_ldo_action_space():
     print("LDO ACTION SPACE DEBUG TEST")
     print("=" * 50)
     
-    ldo_file = "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice"
+    ldo_file = "data/netlists/sky130_am_ip__ldo_01v8.spice"
     
     if not Path(ldo_file).exists():
         print(f"File not found: {ldo_file}")
@@ -215,7 +215,7 @@ def analyze_action_masking_potential():
     print(f"\nACTION MASKING ANALYSIS")
     print("=" * 50)
     
-    ldo_file = "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice"
+    ldo_file = "data/netlists/sky130_am_ip__ldo_01v8.spice"
     parser = EnhancedSpiceParser()
     circuit_data = parser.parse_spice_file(ldo_file)
     

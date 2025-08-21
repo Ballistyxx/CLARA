@@ -211,8 +211,8 @@ def visualize_connectivity_distribution(analysis_data):
 if __name__ == "__main__":
     # Test files
     test_files = [
-        "/home/eli/Documents/Internship/CLARA/data/netlists/sky130_am_ip__ldo_01v8.spice",
-        "/home/eli/Documents/Internship/CLARA/data/programmable_pll_subcircuits/NAND.spice"
+        "data/netlists/sky130_am_ip__ldo_01v8.spice",
+        "data/programmable_pll_subcircuits/NAND.spice"
     ]
     
     for spice_file in test_files:

@@ -7,7 +7,7 @@ Trains RL models on actual analog circuits from the programmable PLL subcircuits
 import os
 import numpy as np
 import torch
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback, CheckpointCallback
@@ -187,6 +187,7 @@ class EnhancedAnalogLayoutSpiceEnvWrapper(EnhancedAnalogLayoutEnv):
         self.circuit_manager = circuit_manager
         self.episode_count = 0
         self.current_circuit_name = "unknown"
+        self.reward_calculator = RewardCalculator(config_path="configs/rewards.yaml")
         
         # Enable action masking by default for SPICE circuits
         if 'enable_action_masking' not in kwargs:
@@ -239,6 +240,21 @@ class EnhancedAnalogLayoutSpiceEnvWrapper(EnhancedAnalogLayoutEnv):
         
         return super().reset(**kwargs)
     
+    def _get_attempted_position_from_action(self, action) -> Tuple[int, int, int]:
+        """Extract attempted position from action for near-miss analysis."""
+        # This is a simplified extraction - you may need to adjust based on your action space
+        if hasattr(self, 'action_space') and hasattr(self.action_space, 'n'):
+            # Discrete action space
+            if action < self.grid_size * self.grid_size * 4:  # Valid placement action
+                grid_pos = action % (self.grid_size * self.grid_size)
+                orientation = action // (self.grid_size * self.grid_size)
+                x = grid_pos % self.grid_size
+                y = grid_pos // self.grid_size
+                return (x, y, orientation)
+        
+        # Fallback for other action types
+        return (0, 0, 0)
+    
     def step(self, action):
         """Step with adaptive reward calculation."""
         result = super().step(action)
@@ -250,14 +266,18 @@ class EnhancedAnalogLayoutSpiceEnvWrapper(EnhancedAnalogLayoutEnv):
         
         # Use adaptive reward calculator
         if hasattr(self, 'reward_calculator'):
+            # Extract attempted position from action for near-miss bonus
+            attempted_position = self._get_attempted_position_from_action(action)
+            
             total_reward, reward_components = self.reward_calculator.calculate_total_reward(
                 circuit=self.circuit,
                 component_positions=self.component_positions,
                 grid_size=self.grid_size,
                 num_components=self.num_components,
                 placed_count=np.sum(self.placed_mask[:self.num_components]),
+                attempted_position=attempted_position,
                 is_valid_action=info.get('valid_action', True),
-                is_valid_placement=True
+                is_valid_placement=True  # Always true now, let reward function handle violations
             )
             
             info['reward_components'] = {
@@ -265,7 +285,12 @@ class EnhancedAnalogLayoutSpiceEnvWrapper(EnhancedAnalogLayoutEnv):
                 'compactness': reward_components.compactness,
                 'connectivity': reward_components.connectivity,
                 'completion': reward_components.completion,
-                'placement_step': reward_components.placement_step
+                'placement_step': reward_components.placement_step,
+                'device_grouping': reward_components.device_grouping,
+                'overlap_severity': reward_components.overlap_severity,
+                'bounds_violation': reward_components.bounds_violation,
+                'spacing_violation': reward_components.spacing_violation,
+                'near_miss_bonus': reward_components.near_miss_bonus
             }
             info['circuit_name'] = self.current_circuit_name
             
@@ -451,7 +476,7 @@ def main():
     torch.manual_seed(config['seed'])
     
     # Initialize SPICE circuit manager
-    spice_directory = "/home/eli/Documents/Internship/CLARA/data/netlists/programmable_pll_subcircuits"
+    spice_directory = "data/netlists/programmable_pll_subcircuits"
     circuit_manager = SpiceCircuitManager(spice_directory)
     
     # Print circuit statistics
