@@ -16,6 +16,162 @@ import argparse
 import networkx as nx
 
 
+def _capture_visualization_step(live_viz_data, visualizer, env, step, 
+                               save_frames, create_gif, gif_frames, viz_delay, 
+                               components_placed, placement_step):
+    """Handle visualization for a single step - only when component placement changes."""
+    
+    # Real-time visualization
+    if live_viz_data:
+        _update_live_visualization(live_viz_data, env, step, placement_step)
+        
+        # Handle user input for stepping
+        if not live_viz_data['auto_mode']:
+            user_input = input(f"\nPlacement {placement_step} (Step {step}) - Press ENTER for next placement (q=quit, f=fast): ").strip().lower()
+            if user_input == 'q':
+                raise KeyboardInterrupt("User requested quit")
+            elif user_input == 'f':
+                live_viz_data['auto_mode'] = True
+                print("Switched to auto mode (fast forward)")
+        else:
+            import time
+            time.sleep(viz_delay)
+    
+    # Save individual frames (only for placement changes)
+    if save_frames:
+        fig = visualizer.visualize_layout(
+            circuit=env.circuit,
+            component_positions=env.component_positions,
+            title=f"Placement {placement_step}: {components_placed}/{env.num_components} components placed (Step {step})",
+            show_connections=True,
+            save_path=f"placement_{placement_step:03d}.png"
+        )
+        plt.close(fig)
+        print(f"Saved placement_{placement_step:03d}.png")
+    
+    # Capture for GIF (only for placement changes)
+    if create_gif:
+        fig = visualizer.visualize_layout(
+            circuit=env.circuit,
+            component_positions=env.component_positions,
+            title=f"Placement {placement_step}: {components_placed}/{env.num_components} components placed",
+            show_connections=True
+        )
+        
+        # Convert matplotlib figure to numpy array
+        fig.canvas.draw()
+        buf = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        buf = buf.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        gif_frames.append(buf)
+        plt.close(fig)
+
+
+def _update_live_visualization(live_viz_data, env, step, placement_step):
+    """Update the live visualization display."""
+    ax = live_viz_data['ax']
+    fig = live_viz_data['fig']
+    
+    # Clear and set up the plot
+    ax.clear()
+    ax.set_xlim(-0.5, env.grid_size - 0.5)
+    ax.set_ylim(-0.5, env.grid_size - 0.5)
+    ax.set_aspect('equal')
+    ax.grid(True, alpha=0.3)
+    ax.set_title(f"Placement {placement_step}: {len(env.component_positions)}/{env.num_components} components placed\n"
+                f"Real-time CLARA Layout Visualization (Step {step})", fontsize=14, fontweight='bold')
+    ax.set_xlabel("Grid X")
+    ax.set_ylabel("Grid Y")
+    
+    # Draw placed components
+    for comp_id, (x, y, orientation) in env.component_positions.items():
+        component_attrs = env.circuit.nodes[comp_id]
+        width = float(component_attrs.get('width', 1))
+        height = float(component_attrs.get('height', 1))
+        comp_type = component_attrs.get('component_type', 0)
+        
+        # Rotate dimensions based on orientation
+        if orientation in [1, 3]:  # 90° or 270° rotation
+            width, height = height, width
+        
+        # Component type colors
+        colors = {
+            0: 'lightblue',   # NMOS
+            1: 'lightcoral',  # PMOS  
+            2: 'lightgreen',  # Resistor
+            3: 'yellow',      # Capacitor
+            4: 'orange',      # Inductor
+        }
+        color = colors.get(comp_type, 'lightgray')
+        
+        # Draw component rectangle
+        from matplotlib.patches import Rectangle
+        rect = Rectangle((x, y), width, height, 
+                        facecolor=color, edgecolor='black', 
+                        linewidth=1.5, alpha=0.8)
+        ax.add_patch(rect)
+        
+        # Add component label
+        center_x = x + width / 2
+        center_y = y + height / 2
+        ax.text(center_x, center_y, str(comp_id), 
+               ha='center', va='center', fontweight='bold', fontsize=8)
+        
+        # Add type indicator
+        type_names = ['N', 'P', 'R', 'C', 'L']
+        if comp_type < len(type_names):
+            ax.text(x + 0.1, y + height - 0.1, type_names[comp_type], 
+                   ha='left', va='top', fontsize=6, fontweight='bold')
+    
+    # Draw connections between placed components
+    for edge in env.circuit.edges():
+        comp1, comp2 = edge
+        if comp1 in env.component_positions and comp2 in env.component_positions:
+            pos1 = env.component_positions[comp1]
+            pos2 = env.component_positions[comp2]
+            
+            # Get component dimensions for center calculation
+            attrs1 = env.circuit.nodes[comp1]
+            attrs2 = env.circuit.nodes[comp2]
+            w1, h1 = float(attrs1.get('width', 1)), float(attrs1.get('height', 1))
+            w2, h2 = float(attrs2.get('width', 1)), float(attrs2.get('height', 1))
+            
+            # Adjust for orientation
+            if pos1[2] in [1, 3]:  # 90° or 270°
+                w1, h1 = h1, w1
+            if pos2[2] in [1, 3]:  # 90° or 270°
+                w2, h2 = h2, w2
+            
+            center1 = (pos1[0] + w1/2, pos1[1] + h1/2)
+            center2 = (pos2[0] + w2/2, pos2[1] + h2/2)
+            
+            ax.plot([center1[0], center2[0]], [center1[1], center2[1]], 
+                   'k--', alpha=0.4, linewidth=1)
+    
+    # Add legend
+    legend_elements = [
+        plt.Rectangle((0,0),1,1, facecolor='lightblue', edgecolor='black', label='NMOS'),
+        plt.Rectangle((0,0),1,1, facecolor='lightcoral', edgecolor='black', label='PMOS'),
+        plt.Rectangle((0,0),1,1, facecolor='lightgreen', edgecolor='black', label='Resistor'),
+        plt.Rectangle((0,0),1,1, facecolor='yellow', edgecolor='black', label='Capacitor'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.15, 1))
+    
+    # Update display
+    plt.draw()
+    plt.tight_layout()
+
+
+def _create_gif_from_frames(frames, filename):
+    """Create an animated GIF from captured frames."""
+    try:
+        import imageio
+        imageio.mimsave(filename, frames, duration=0.5)
+        print(f"Animation saved as {filename}")
+    except ImportError:
+        print("Warning: imageio not available, cannot create GIF")
+        print("Install with: pip install imageio")
+
+
 def sample_large_circuit(circuit: nx.Graph, max_components: int, strategy='diverse') -> nx.Graph:
     """
     Create a representative subset of a large circuit.
@@ -119,8 +275,10 @@ def load_model(model_path: str):
     raise FileNotFoundError(f"Model not found. Tried paths: {[p + '.zip' for p in possible_paths]}")
 
 
-def run_single_episode(model, env, deterministic=True, render=False, reset_env=True):
-    """Run a single episode with the trained model."""
+def run_single_episode(model, env, deterministic=True, render=False, reset_env=True, 
+                      live_viz=False, save_frames=False, create_gif=False, viz_delay=0.5,
+                      show_action_efficiency=False):
+    """Run a single episode with the trained model and optional visualization."""
     if reset_env:
         result = env.reset()
         if isinstance(result, tuple):
@@ -133,6 +291,18 @@ def run_single_episode(model, env, deterministic=True, render=False, reset_env=T
     
     total_reward = 0
     step = 0
+    
+    # Action efficiency tracking
+    if show_action_efficiency:
+        action_stats = {
+            'total_steps': 0,
+            'valid_steps': 0,
+            'placement_steps': 0,
+            'invalid_actions': 0,
+            'invalid_placements': 0,
+            'no_placement_steps': 0
+        }
+    
     episode_data = {
         'positions': [],
         'rewards': [],
@@ -140,14 +310,61 @@ def run_single_episode(model, env, deterministic=True, render=False, reset_env=T
         'circuit': env.circuit
     }
     
+    # Initialize visualization if requested
+    live_viz_data = None
+    gif_frames = []
+    placement_step = 0  # Track placement events, not just steps
+    
+    if live_viz or save_frames or create_gif:
+        visualizer = AnalogLayoutVisualizer(grid_size=env.grid_size)
+        
+        if live_viz:
+            print("\n" + "="*60)
+            print("REAL-TIME VISUALIZATION MODE")
+            print("Controls:")
+            print("  - Press ENTER to advance to next component placement")
+            print("  - Type 'q' + ENTER to quit")
+            print("  - Type 'f' + ENTER to fast-forward (auto mode)")
+            print("  - Only shows when components are actually placed")
+            print("="*60)
+            
+            # Set up interactive plotting
+            plt.ion()
+            fig, ax = plt.subplots(figsize=(12, 10))
+            
+            live_viz_data = {
+                'fig': fig,
+                'ax': ax,
+                'auto_mode': False,
+                'visualizer': visualizer
+            }
+    
     if render:
         print(f"\nRunning episode with {env.num_components} components")
         print(f"Circuit nodes: {list(env.circuit.nodes())}")
         print(f"Circuit edges: {list(env.circuit.edges())}")
     
+    # Initial visualization (empty grid)
+    if live_viz or save_frames or create_gif:
+        placement_step += 1
+        _capture_visualization_step(
+            live_viz_data, visualizer, env, 0, 
+            save_frames, create_gif, gif_frames, viz_delay, 
+            len(env.component_positions), placement_step
+        )
+    
     while step < env.max_steps:
-        # Get action from model
-        action, _states = model.predict(obs, deterministic=deterministic)
+        # Track components before action
+        components_before = len(env.component_positions)
+        
+        # Get action from model with action masking for better efficiency
+        if hasattr(env, 'action_masks') and env.enable_action_masking:
+            # Use action masking to avoid invalid actions
+            action_mask = env.action_masks()
+            action, _states = model.predict(obs, deterministic=deterministic, action_mask=action_mask)
+        else:
+            # Fallback to standard prediction
+            action, _states = model.predict(obs, deterministic=deterministic)
         
         # Store episode data
         episode_data['positions'].append(env.component_positions.copy())
@@ -166,16 +383,51 @@ def run_single_episode(model, env, deterministic=True, render=False, reset_env=T
         
         episode_data['rewards'].append(reward)
         
+        # Track action efficiency
+        if show_action_efficiency:
+            action_stats['total_steps'] += 1
+            valid_action = info.get('valid_action', True)
+            placement_successful = info.get('placement_successful', False)
+            
+            if not valid_action:
+                action_stats['invalid_actions'] += 1
+            elif placement_successful:
+                action_stats['placement_steps'] += 1
+                action_stats['valid_steps'] += 1
+            else:
+                action_stats['valid_steps'] += 1
+                action_stats['no_placement_steps'] += 1
+        
+        # Check if a component was actually placed
+        components_after = len(env.component_positions)
+        component_placed = components_after > components_before
+        
+        # Visualization only when component is placed
+        if component_placed and (live_viz or save_frames or create_gif):
+            placement_step += 1
+            _capture_visualization_step(
+                live_viz_data, visualizer, env, step, 
+                save_frames, create_gif, gif_frames, viz_delay,
+                components_after, placement_step
+            )
+        
         if render:
             print(f"Step {step}: action={action}, reward={reward:.3f}, "
                   f"valid_action={info.get('valid_action', True)}, "
                   f"placed={len(env.component_positions)}/{env.num_components}")
             
+            if component_placed:
+                print(f"  ✓ Component placed! Total: {components_after}/{env.num_components}")
+            elif not info.get('valid_action', True):
+                print(f"  ✗ Invalid action")
+            else:
+                print(f"  - No placement this step")
+            
             if 'reward_components' in info:
                 breakdown = info['reward_components']
                 non_zero = {k: v for k, v in breakdown.items() if abs(v) > 0.001}
                 if non_zero:
-                    print(f"Reward breakdown: {non_zero}")
+                    print(f"    Reward breakdown: {non_zero}")
         
         if done:
             break
@@ -183,7 +435,39 @@ def run_single_episode(model, env, deterministic=True, render=False, reset_env=T
     # Final positions
     episode_data['positions'].append(env.component_positions.copy())
     
+    # Clean up visualization
+    if live_viz_data:
+        plt.ioff()
+        plt.close(live_viz_data['fig'])
+        print("\nVisualization completed!")
+    
+    # Create GIF if requested
+    if create_gif and gif_frames:
+        _create_gif_from_frames(gif_frames, "component_placement_animation.gif")
+    
     success = len(env.component_positions) == env.num_components
+    
+    # Print action efficiency analysis
+    if show_action_efficiency and action_stats['total_steps'] > 0:
+        print(f"\n📊 Action Efficiency Analysis:")
+        print(f"   Total RL steps: {action_stats['total_steps']}")
+        print(f"   Valid actions: {action_stats['valid_steps']} ({action_stats['valid_steps']/action_stats['total_steps']*100:.1f}%)")
+        print(f"   Successful placements: {action_stats['placement_steps']} ({action_stats['placement_steps']/action_stats['total_steps']*100:.1f}%)")
+        print(f"   Invalid actions: {action_stats['invalid_actions']} ({action_stats['invalid_actions']/action_stats['total_steps']*100:.1f}%)")
+        print(f"   Valid but no placement: {action_stats['no_placement_steps']} ({action_stats['no_placement_steps']/action_stats['total_steps']*100:.1f}%)")
+        
+        if action_stats['placement_steps'] > 0:
+            efficiency = action_stats['placement_steps'] / action_stats['valid_steps'] * 100
+            print(f"   Placement efficiency: {efficiency:.1f}% (placements per valid action)")
+            
+            if action_stats['invalid_actions'] > action_stats['placement_steps']:
+                print(f"   ⚠️  High invalid action rate - consider enabling action masking")
+            elif efficiency > 80:
+                print(f"   ✅ Excellent placement efficiency!")
+            elif efficiency > 60:
+                print(f"   👍 Good placement efficiency")
+            else:
+                print(f"   📈 Room for improvement in placement efficiency")
     
     if render:
         print(f"\nEpisode Summary:")
@@ -195,7 +479,9 @@ def run_single_episode(model, env, deterministic=True, render=False, reset_env=T
     return episode_data, total_reward, step, success
 
 
-def run_multiple_episodes(model, env, num_episodes=5, deterministic=True, specific_circuit=None):
+def run_multiple_episodes(model, env, num_episodes=5, deterministic=True, specific_circuit=None,
+                         live_viz=False, save_frames=False, create_gif=False, viz_delay=0.5,
+                         show_action_efficiency=False):
     """Run multiple episodes and collect statistics."""
     print(f"\n  Running {num_episodes} episodes...")
     
@@ -209,12 +495,16 @@ def run_multiple_episodes(model, env, num_episodes=5, deterministic=True, specif
             # Reset environment with the specific circuit for each episode
             env.reset(circuit_graph=specific_circuit)
             episode_data, reward, steps, success = run_single_episode(
-                model, env, deterministic=deterministic, render=False, reset_env=False
+                model, env, deterministic=deterministic, render=False, reset_env=False,
+                live_viz=live_viz, save_frames=save_frames, create_gif=create_gif, 
+                viz_delay=viz_delay, show_action_efficiency=show_action_efficiency
             )
         else:
             # Use default reset behavior
             episode_data, reward, steps, success = run_single_episode(
-                model, env, deterministic=deterministic, render=False, reset_env=True
+                model, env, deterministic=deterministic, render=False, reset_env=True,
+                live_viz=live_viz, save_frames=save_frames, create_gif=create_gif, 
+                viz_delay=viz_delay, show_action_efficiency=show_action_efficiency
             )
         
         episode_results.append(episode_data)
@@ -449,6 +739,16 @@ def main():
                        help='Test grid transferability across different sizes')
     parser.add_argument('--render', '-r', action='store_true',
                        help='Print detailed step-by-step output')
+    parser.add_argument('--live-viz', action='store_true',
+                       help='Show real-time component placement visualization (interactive, advances only when components are placed)')
+    parser.add_argument('--save-frames', action='store_true',
+                       help='Save individual frame images for each component placement')
+    parser.add_argument('--create-gif', action='store_true',
+                       help='Create animated GIF showing component placement progression')
+    parser.add_argument('--viz-delay', type=float, default=0.5,
+                       help='Delay between placements in auto mode (seconds, default: 0.5)')
+    parser.add_argument('--show-efficiency', action='store_true',
+                       help='Show detailed action efficiency analysis (invalid actions, placement rates, etc.)')
     
     args = parser.parse_args()
     
@@ -511,7 +811,10 @@ def main():
             
             if args.episodes == 1:
                 episode_data, reward, steps, success = run_single_episode(
-                    model, env, deterministic=args.deterministic, render=args.render, reset_env=False
+                    model, env, deterministic=args.deterministic, render=args.render, reset_env=False,
+                    live_viz=args.live_viz, save_frames=args.save_frames, 
+                    create_gif=args.create_gif, viz_delay=args.viz_delay,
+                    show_action_efficiency=args.show_efficiency
                 )
                 
                 if args.visualize:
@@ -524,7 +827,10 @@ def main():
                 # For multiple episodes with the same circuit, we can reset each time
                 episode_results, stats = run_multiple_episodes(
                     model, env, num_episodes=args.episodes, 
-                    deterministic=args.deterministic, specific_circuit=test_circuit
+                    deterministic=args.deterministic, specific_circuit=test_circuit,
+                    live_viz=args.live_viz, save_frames=args.save_frames,
+                    create_gif=args.create_gif, viz_delay=args.viz_delay,
+                    show_action_efficiency=args.show_efficiency
                 )
                 
                 if args.visualize:
@@ -556,6 +862,17 @@ def main():
                       f"{result['steps']} steps, {components_info}")
         
         print("\nModel evaluation completed!")
+        print("\nVisualization Options:")
+        print("   - Use --live-viz for real-time component placement visualization (interactive)")
+        print("     * Only advances when components are actually placed (skips invalid actions)")
+        print("     * Press ENTER to see next placement, 'f' for auto mode, 'q' to quit")
+        print("   - Use --save-frames to save individual PNG files for each component placement")
+        print("   - Use --create-gif to generate an animated GIF of component placement progression")
+        print("   - Use --viz-delay to control animation speed (default: 0.5 seconds)")
+        print("   - Use --show-efficiency to analyze action efficiency and placement rates")
+        print("\nAnalysis Options:")
+        print("   - Action masking is automatically enabled to improve step efficiency")
+        print("   - Use --show-efficiency to see detailed breakdown of action types")
         print("\nTips:")
         print("   - Use --circuit to test specific SPICE circuits")
         print("   - Use --test-circuits to test all available circuits")
@@ -563,6 +880,11 @@ def main():
         print("   - Use --test-transferability to see grid-agnostic capabilities")
         print("   - Use --visualize to see layout diagrams")
         print("   - Large circuits are automatically sampled to fit model constraints!")
+        print("\nExample commands:")
+        print("   python run_model.py --live-viz                     # Interactive real-time viewing")
+        print("   python run_model.py --create-gif --save-frames     # Create animation + frames")
+        print("   python run_model.py --live-viz --show-efficiency   # Real-time view + action analysis")
+        print("   python run_model.py --circuit LDO.spice --show-efficiency  # Analyze specific circuit efficiency")
 
     except FileNotFoundError as e:
         print(f"Error: {e}")

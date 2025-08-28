@@ -41,7 +41,7 @@ class AnalogLayoutEnv(gym.Env):
         
         self.grid_size = grid_size
         self.max_components = max_components
-        self.max_steps = max_components * 10  # Limit episode length
+        self.max_steps = max_components * 1000  # Limit episode length
         self.enable_action_masking = enable_action_masking
         
         # Action space: [target_component_id, spatial_relation_type, orientation]

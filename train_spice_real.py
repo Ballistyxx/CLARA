@@ -446,7 +446,7 @@ def main():
         'grid_size': 20,      # Adequate size for real circuits
         'max_components': 100,  # Support larger real circuits
         'n_envs': 4,          # Parallel environments
-        'total_timesteps': 100000,  # Longer training for real circuits
+        'total_timesteps': 1000,  # Longer training for real circuits
         'learning_rate': 5e-4,      # Moderate learning rate
         'batch_size': 128,          # Good batch size
         'n_steps': 512,            # Rollout buffer size
